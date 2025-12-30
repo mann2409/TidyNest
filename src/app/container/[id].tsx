@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { View, Text, Pressable, ScrollView, Image, Share } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ChevronLeft, Plus, Package, Trash2, QrCode, Share as ShareIcon } from 'lucide-react-native';
+import { ChevronLeft, Plus, Package, Trash2, QrCode, Share as ShareIcon, Pencil } from 'lucide-react-native';
 import useStorageStore from '@/lib/state/storage-store';
 
 export default function ContainerDetailScreen() {
@@ -67,6 +67,12 @@ export default function ContainerDetailScreen() {
             <Text className="text-white ml-1">Back</Text>
           </Pressable>
           <View className="flex-row gap-2">
+            <Pressable
+              className="w-10 h-10 bg-zinc-800 rounded-full items-center justify-center"
+              onPress={() => router.push(`/edit-container?id=${container.id}`)}
+            >
+              <Pencil size={20} color="#f59e0b" />
+            </Pressable>
             <Pressable
               className="w-10 h-10 bg-zinc-800 rounded-full items-center justify-center"
               onPress={() => setShowQR(!showQR)}
@@ -166,15 +172,19 @@ export default function ContainerDetailScreen() {
             ) : (
               <View>
                 {containerItems.map((item) => (
-                  <View
+                  <Pressable
                     key={item.id}
-                    className="bg-zinc-900 rounded-xl p-4 mb-2 flex-row items-start"
+                    className="bg-zinc-900 rounded-xl p-4 mb-2 flex-row items-start active:opacity-80"
+                    onPress={() => router.push(`/edit-item?itemId=${item.id}`)}
                   >
                     <View className="w-10 h-10 bg-amber-500/20 rounded-xl items-center justify-center mr-3">
                       <Package size={20} color="#f59e0b" />
                     </View>
                     <View className="flex-1">
-                      <Text className="text-white font-medium">{item.name}</Text>
+                      <View className="flex-row items-center">
+                        <Text className="text-white font-medium flex-1">{item.name}</Text>
+                        <Pencil size={14} color="#71717a" />
+                      </View>
                       {item.quantity && (
                         <Text className="text-zinc-500 text-sm">Qty: {item.quantity}</Text>
                       )}
@@ -193,11 +203,14 @@ export default function ContainerDetailScreen() {
                     </View>
                     <Pressable
                       className="p-2"
-                      onPress={() => deleteItem(item.id)}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        deleteItem(item.id);
+                      }}
                     >
                       <Trash2 size={16} color="#71717a" />
                     </Pressable>
-                  </View>
+                  </Pressable>
                 ))}
               </View>
             )}

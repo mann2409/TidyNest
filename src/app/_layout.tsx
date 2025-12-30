@@ -24,8 +24,10 @@ function RootLayoutNav({ colorScheme }: { colorScheme: 'light' | 'dark' | null |
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="add-container" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="edit-container" options={{ presentation: 'modal' }} />
         <Stack.Screen name="container/[id]" />
         <Stack.Screen name="add-item" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="edit-item" options={{ presentation: 'modal' }} />
         <Stack.Screen name="locations" options={{ presentation: 'modal' }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
       </Stack>
