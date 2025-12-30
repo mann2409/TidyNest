@@ -126,11 +126,16 @@ export default function ContainerDetailScreen() {
           {container.photoUrl && (
             <View className="mb-6">
               <Text className="text-zinc-400 text-sm mb-2">Photo</Text>
-              <Image
-                source={{ uri: container.photoUrl }}
-                className="w-full h-48 rounded-xl"
-                resizeMode="cover"
-              />
+              <Pressable
+                onPress={() => router.push(`/photo-viewer?uri=${encodeURIComponent(container.photoUrl!)}`)}
+                className="active:opacity-80"
+              >
+                <Image
+                  source={{ uri: container.photoUrl }}
+                  className="w-full h-48 rounded-xl"
+                  resizeMode="cover"
+                />
+              </Pressable>
             </View>
           )}
 
