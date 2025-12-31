@@ -6,11 +6,11 @@ import { X, Camera, Image as ImageIcon, Sparkles, ChevronDown, Check } from 'luc
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import useStorageStore, { Location } from '@/lib/state/storage-store';
-import { ALL_CATEGORIES, analyzeKeywordsForCategory } from '@/lib/category-mapping';
 
 export default function AddContainerScreen() {
   const router = useRouter();
   const locations = useStorageStore((s) => s.locations);
+  const categories = useStorageStore((s) => s.categories);
   const addContainer = useStorageStore((s) => s.addContainer);
   const getNextContainerCode = useStorageStore((s) => s.getNextContainerCode);
 
@@ -70,6 +70,9 @@ export default function AddContainerScreen() {
       const mimeType = uri.endsWith('.png') ? 'image/png' : 'image/jpeg';
       const dataUrl = `data:${mimeType};base64,${base64}`;
 
+      // Build dynamic category list from store
+      const categoryList = categories.map((c) => c.code).join(', ');
+
       // Call OpenAI Vision API
       const response = await fetch('https://api.openai.com/v1/responses', {
         method: 'POST',
@@ -84,7 +87,7 @@ export default function AddContainerScreen() {
             content: [
               {
                 type: 'input_text',
-                text: 'Look at this storage box contents. List 5-10 keywords describing the items you see (e.g., hammer, screwdriver, tape, cables). Then suggest ONE category from this list: TOOLS, ELEC, TAPE, PAINT, GARDEN, CAMPING, XMAS, KITCHEN, CLEAN, OFFICE, KIDS, SPORTS, AUTO, PLUMB, CRAFT, MISC. Respond ONLY in this JSON format: {"keywords": ["item1", "item2"], "category": "CATEGORY"}'
+                text: `Look at this storage box contents. List 5-10 keywords describing the items you see (e.g., hammer, screwdriver, tape, cables). Then suggest ONE category from this list: ${categoryList}. Respond ONLY in this JSON format: {"keywords": ["item1", "item2"], "category": "CATEGORY"}`
               },
               { type: 'input_image', image_url: dataUrl },
             ],
@@ -280,14 +283,17 @@ export default function AddContainerScreen() {
 
             {showCategoryPicker && (
               <ScrollView className="bg-zinc-900 rounded-xl mt-2 max-h-48">
-                {ALL_CATEGORIES.map((cat) => (
+                {categories.map((cat) => (
                   <Pressable
-                    key={cat}
+                    key={cat.id}
                     className="p-4 flex-row items-center justify-between border-b border-zinc-800 active:bg-zinc-800"
-                    onPress={() => handleCategorySelect(cat)}
+                    onPress={() => handleCategorySelect(cat.code)}
                   >
-                    <Text className="text-white">{cat}</Text>
-                    {category === cat && <Check size={20} color="#f59e0b" />}
+                    <View className="flex-row items-center">
+                      <Text className="text-white font-medium">{cat.code}</Text>
+                      <Text className="text-zinc-500 ml-2">{cat.name}</Text>
+                    </View>
+                    {category === cat.code && <Check size={20} color="#f59e0b" />}
                   </Pressable>
                 ))}
               </ScrollView>

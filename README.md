@@ -11,6 +11,7 @@ A mobile app for managing home storage boxes. Track containers, items, and find 
 - **Smart Search**: Search across all items, boxes, and tags
 - **QR Code Generation**: Generate QR codes for printing labels
 - **Multiple Locations**: Organize boxes by location (Garage, Attic, etc.)
+- **Custom Categories**: Create your own categories with custom codes and keywords for AI detection
 
 ## How It Works
 
@@ -24,7 +25,7 @@ A mobile app for managing home storage boxes. Track containers, items, and find 
 
 - **Search Tab**: Main screen with search and recent boxes
 - **All Boxes Tab**: View all boxes grouped by location
-- **Settings Tab**: Manage locations and view stats
+- **Settings Tab**: Manage locations, categories, and view stats
 
 ## Tech Stack
 

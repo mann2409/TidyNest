@@ -29,6 +29,7 @@ function RootLayoutNav({ colorScheme }: { colorScheme: 'light' | 'dark' | null |
         <Stack.Screen name="add-item" options={{ presentation: 'modal' }} />
         <Stack.Screen name="edit-item" options={{ presentation: 'modal' }} />
         <Stack.Screen name="locations" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="categories" options={{ presentation: 'modal' }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
         <Stack.Screen name="photo-viewer" options={{ presentation: 'fullScreenModal', animation: 'fade' }} />
       </Stack>

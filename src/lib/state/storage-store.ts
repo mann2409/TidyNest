@@ -32,10 +32,19 @@ export interface Item {
   updatedAt: string;
 }
 
+export interface Category {
+  id: string;
+  code: string;
+  name: string;
+  keywords: string[];
+  isDefault?: boolean;
+}
+
 interface StorageStore {
   locations: Location[];
   containers: Container[];
   items: Item[];
+  categories: Category[];
 
   // Location actions
   addLocation: (location: Omit<Location, 'id'>) => Location;
@@ -53,6 +62,11 @@ interface StorageStore {
   updateItem: (id: string, updates: Partial<Item>) => void;
   deleteItem: (id: string) => void;
 
+  // Category actions
+  addCategory: (category: Omit<Category, 'id'>) => Category;
+  updateCategory: (id: string, updates: Partial<Category>) => void;
+  deleteCategory: (id: string) => void;
+
   // Search
   search: (query: string) => { items: Item[]; containers: Container[] };
 }
@@ -69,12 +83,33 @@ const defaultLocations: Location[] = [
   { id: 'loc-closet', name: 'Closet', code: 'CL' },
 ];
 
+// Default categories
+const defaultCategories: Category[] = [
+  { id: 'cat-tools', code: 'TOOLS', name: 'Tools', keywords: ['hammer', 'screwdriver', 'wrench', 'pliers', 'drill', 'saw', 'tape measure', 'level', 'tool', 'socket', 'ratchet', 'clamp', 'vise', 'chisel', 'file', 'sandpaper', 'sanding', 'protective', 'safety', 'goggles', 'gloves', 'mask'], isDefault: true },
+  { id: 'cat-elec', code: 'ELEC', name: 'Electronics', keywords: ['cable', 'wire', 'electrical', 'plug', 'socket', 'extension', 'power strip', 'adapter', 'charger', 'battery', 'batteries', 'led', 'bulb', 'light', 'lamp', 'electronics', 'circuit', 'switch', 'outlet', 'voltage', 'multimeter'], isDefault: true },
+  { id: 'cat-tape', code: 'TAPE', name: 'Tape & Adhesives', keywords: ['tape', 'duct tape', 'masking tape', 'packing tape', 'electrical tape', 'painters tape', 'adhesive', 'velcro', 'straps', 'ties', 'zip ties', 'bungee'], isDefault: true },
+  { id: 'cat-paint', code: 'PAINT', name: 'Paint', keywords: ['paint', 'brush', 'roller', 'primer', 'stain', 'varnish', 'lacquer', 'spray paint', 'drop cloth', 'tray', 'spackle', 'putty', 'caulk', 'painters'], isDefault: true },
+  { id: 'cat-garden', code: 'GARDEN', name: 'Garden', keywords: ['garden', 'plant', 'seed', 'pot', 'soil', 'fertilizer', 'hose', 'sprinkler', 'rake', 'shovel', 'trowel', 'pruner', 'shears', 'wheelbarrow', 'lawn', 'grass', 'weed', 'mulch'], isDefault: true },
+  { id: 'cat-camping', code: 'CAMPING', name: 'Camping', keywords: ['tent', 'sleeping bag', 'lantern', 'cooler', 'camping', 'outdoor', 'hiking', 'backpack', 'compass', 'flashlight', 'headlamp', 'rope', 'carabiner', 'camping stove', 'canteen', 'first aid'], isDefault: true },
+  { id: 'cat-xmas', code: 'XMAS', name: 'Christmas', keywords: ['christmas', 'holiday', 'ornament', 'decoration', 'lights', 'tree', 'wreath', 'garland', 'stocking', 'santa', 'snowman', 'reindeer', 'tinsel', 'bow'], isDefault: true },
+  { id: 'cat-kitchen', code: 'KITCHEN', name: 'Kitchen', keywords: ['kitchen', 'cooking', 'baking', 'pot', 'pan', 'utensil', 'spatula', 'whisk', 'bowl', 'plate', 'cup', 'mug', 'glass', 'silverware', 'knife', 'cutting board', 'container', 'tupperware', 'storage container', 'food'], isDefault: true },
+  { id: 'cat-clean', code: 'CLEAN', name: 'Cleaning', keywords: ['cleaning', 'cleaner', 'soap', 'detergent', 'sponge', 'brush', 'mop', 'broom', 'vacuum', 'duster', 'rag', 'towel', 'bucket', 'spray bottle', 'disinfectant'], isDefault: true },
+  { id: 'cat-office', code: 'OFFICE', name: 'Office', keywords: ['office', 'paper', 'pen', 'pencil', 'stapler', 'clip', 'folder', 'binder', 'notebook', 'sticky note', 'tape', 'scissors', 'ruler', 'calculator', 'desk'], isDefault: true },
+  { id: 'cat-kids', code: 'KIDS', name: 'Kids', keywords: ['toy', 'game', 'puzzle', 'doll', 'action figure', 'lego', 'blocks', 'ball', 'bike', 'scooter', 'skateboard', 'art supplies', 'crayon', 'marker', 'kids'], isDefault: true },
+  { id: 'cat-sports', code: 'SPORTS', name: 'Sports', keywords: ['sports', 'ball', 'bat', 'racket', 'helmet', 'pads', 'jersey', 'shoes', 'cleats', 'glove', 'net', 'goal', 'weights', 'dumbbell', 'yoga', 'exercise'], isDefault: true },
+  { id: 'cat-auto', code: 'AUTO', name: 'Auto', keywords: ['car', 'auto', 'vehicle', 'oil', 'filter', 'brake', 'tire', 'wheel', 'jack', 'jumper cables', 'windshield', 'wiper', 'coolant', 'antifreeze', 'spark plug'], isDefault: true },
+  { id: 'cat-plumb', code: 'PLUMB', name: 'Plumbing', keywords: ['plumbing', 'pipe', 'faucet', 'valve', 'fitting', 'pvc', 'copper', 'drain', 'snake', 'plunger', 'washer', 'o-ring', 'teflon tape', 'toilet'], isDefault: true },
+  { id: 'cat-craft', code: 'CRAFT', name: 'Crafts', keywords: ['craft', 'fabric', 'yarn', 'needle', 'thread', 'sewing', 'knitting', 'glue', 'scissors', 'beads', 'ribbon', 'canvas', 'scrapbook'], isDefault: true },
+  { id: 'cat-misc', code: 'MISC', name: 'Miscellaneous', keywords: ['miscellaneous', 'other', 'various', 'mixed', 'assorted', 'general'], isDefault: true },
+];
+
 const useStorageStore = create<StorageStore>()(
   persist(
     (set, get) => ({
       locations: defaultLocations,
       containers: [],
       items: [],
+      categories: defaultCategories,
 
       // Location actions
       addLocation: (location) => {
@@ -176,6 +211,32 @@ const useStorageStore = create<StorageStore>()(
       deleteItem: (id) => {
         set((state) => ({
           items: state.items.filter((item) => item.id !== id),
+        }));
+      },
+
+      // Category actions
+      addCategory: (category) => {
+        const newCategory: Category = {
+          ...category,
+          id: generateId(),
+        };
+        set((state) => ({
+          categories: [...state.categories, newCategory],
+        }));
+        return newCategory;
+      },
+
+      updateCategory: (id, updates) => {
+        set((state) => ({
+          categories: state.categories.map((cat) =>
+            cat.id === id ? { ...cat, ...updates } : cat
+          ),
+        }));
+      },
+
+      deleteCategory: (id) => {
+        set((state) => ({
+          categories: state.categories.filter((cat) => cat.id !== id),
         }));
       },
 
