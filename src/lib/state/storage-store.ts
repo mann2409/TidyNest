@@ -1,6 +1,10 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { supabase } from "@/lib/supabase";
+import { useAuthStore } from "./auth-store";
+import 'react-native-get-random-values';
+import { v4 as uuidv4 } from 'uuid';
 
 // Types
 export interface Location {
@@ -18,6 +22,8 @@ export interface Container {
   photoUrl?: string;
   createdAt: string;
   updatedAt: string;
+  lastViewedAt?: string;
+  viewCount?: number;
 }
 
 export interface Item {
@@ -28,6 +34,7 @@ export interface Item {
   quantity?: number;
   notes?: string;
   photoUrl?: string;
+  expiryDate?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -45,42 +52,46 @@ interface StorageStore {
   containers: Container[];
   items: Item[];
   categories: Category[];
+  customCategories: string[]; // Keep for backward compatibility or transition
 
   // Location actions
   addLocation: (location: Omit<Location, 'id'>) => Location;
   updateLocation: (id: string, updates: Partial<Location>) => void;
   deleteLocation: (id: string) => void;
 
+  // Category actions
+  addCategory: (category: string) => void;
+  deleteCategory: (category: string) => void;
+  
   // Container actions
-  addContainer: (container: Omit<Container, 'id' | 'createdAt' | 'updatedAt'>) => Container;
+  addContainer: (container: Omit<Container, 'id' | 'createdAt' | 'updatedAt' | 'lastViewedAt' | 'viewCount'>) => Container;
   updateContainer: (id: string, updates: Partial<Container>) => void;
   deleteContainer: (id: string) => void;
   getNextContainerCode: (locationId: string, category: string) => string;
+  trackContainerView: (id: string) => void;
 
   // Item actions
   addItem: (item: Omit<Item, 'id' | 'createdAt' | 'updatedAt'>) => Item;
   updateItem: (id: string, updates: Partial<Item>) => void;
   deleteItem: (id: string) => void;
 
-  // Category actions
-  addCategory: (category: Omit<Category, 'id'>) => Category;
-  updateCategory: (id: string, updates: Partial<Category>) => void;
-  deleteCategory: (id: string) => void;
-
   // Search
-  search: (query: string) => { items: Item[]; containers: Container[] };
+  search: (query: string) => { items: Item[]; containers: Container[]; locations: Location[] };
+
+  // Sync actions
+  fetchData: () => Promise<void>;
 }
 
-const generateId = () => Math.random().toString(36).substring(2, 15);
+const generateId = () => uuidv4();
 
 // Default locations
 const defaultLocations: Location[] = [
-  { id: 'loc-garage', name: 'Garage', code: 'G' },
-  { id: 'loc-office', name: 'Office', code: 'OF' },
-  { id: 'loc-bedroom', name: 'Bedroom', code: 'BD' },
-  { id: 'loc-attic', name: 'Attic', code: 'AT' },
-  { id: 'loc-basement', name: 'Basement', code: 'BS' },
-  { id: 'loc-closet', name: 'Closet', code: 'CL' },
+  { id: '11111111-1111-1111-1111-111111111111', name: 'Garage', code: 'G' },
+  { id: '22222222-2222-2222-2222-222222222222', name: 'Office', code: 'OF' },
+  { id: '33333333-3333-3333-3333-333333333333', name: 'Bedroom', code: 'BD' },
+  { id: '44444444-4444-4444-4444-444444444444', name: 'Attic', code: 'AT' },
+  { id: '55555555-5555-5555-5555-555555555555', name: 'Basement', code: 'BS' },
+  { id: '66666666-6666-6666-6666-666666666666', name: 'Closet', code: 'CL' },
 ];
 
 // Default categories
@@ -110,6 +121,7 @@ const useStorageStore = create<StorageStore>()(
       containers: [],
       items: [],
       categories: defaultCategories,
+      customCategories: [],
 
       // Location actions
       addLocation: (location) => {
@@ -137,18 +149,58 @@ const useStorageStore = create<StorageStore>()(
         }));
       },
 
+      // Category actions
+      addCategory: (category) => {
+        const cat = category.toUpperCase().trim();
+        if (!cat) return;
+        set((state) => ({
+          customCategories: Array.from(new Set([...state.customCategories, cat])),
+          // Also add to structured categories for consistency
+          categories: [
+            ...state.categories,
+            { id: generateId(), code: cat, name: cat, keywords: [], isDefault: false }
+          ]
+        }));
+      },
+
+      deleteCategory: (category) => {
+        set((state) => ({
+          customCategories: state.customCategories.filter((c) => c !== category),
+          categories: state.categories.filter((c) => c.code !== category),
+        }));
+      },
+
       // Container actions
       addContainer: (container) => {
         const now = new Date().toISOString();
+        const id = generateId();
         const newContainer: Container = {
           ...container,
-          id: generateId(),
+          id,
           createdAt: now,
           updatedAt: now,
         };
         set((state) => ({
           containers: [...state.containers, newContainer],
         }));
+
+        // Background sync to Supabase
+        const user = useAuthStore.getState().user;
+        if (user?.id) {
+          supabase.from('containers').insert({
+            id,
+            user_id: user.id,
+            name: container.code,
+            code: container.code,
+            location_id: container.locationId,
+            category: container.category,
+            description: container.description,
+            photo_url: container.photoUrl,
+          }).then(({ error }) => {
+            if (error) console.error('Supabase sync error (containers):', error);
+          });
+        }
+
         return newContainer;
       },
 
@@ -158,6 +210,19 @@ const useStorageStore = create<StorageStore>()(
             c.id === id ? { ...c, ...updates, updatedAt: new Date().toISOString() } : c
           ),
         }));
+
+        // Update Supabase
+        supabase.from('containers').update({
+          name: updates.code,
+          code: updates.code,
+          location_id: updates.locationId,
+          category: updates.category,
+          description: updates.description,
+          photo_url: updates.photoUrl,
+          updated_at: new Date().toISOString(),
+        }).eq('id', id).then(({ error }) => {
+          if (error) console.error('Supabase update error:', error);
+        });
       },
 
       deleteContainer: (id) => {
@@ -165,6 +230,37 @@ const useStorageStore = create<StorageStore>()(
           containers: state.containers.filter((c) => c.id !== id),
           items: state.items.filter((item) => item.containerId !== id),
         }));
+
+        // Delete from Supabase
+        supabase.from('containers').delete().eq('id', id).then(({ error }) => {
+          if (error) console.error('Supabase delete error:', error);
+        });
+      },
+
+      trackContainerView: (id) => {
+        const now = new Date().toISOString();
+        set((state) => ({
+          containers: state.containers.map((c) =>
+            c.id === id 
+              ? { 
+                  ...c, 
+                  lastViewedAt: now, 
+                  viewCount: (c.viewCount || 0) + 1 
+                } 
+              : c
+          ),
+        }));
+
+        // Update Supabase with view metadata
+        const container = get().containers.find(c => c.id === id);
+        if (container) {
+          supabase.from('containers').update({
+            last_viewed_at: now,
+            view_count: container.viewCount,
+          }).eq('id', id).then(({ error }) => {
+            if (error) console.error('Supabase view track error:', error);
+          });
+        }
       },
 
       getNextContainerCode: (locationId, category) => {
@@ -188,15 +284,34 @@ const useStorageStore = create<StorageStore>()(
       // Item actions
       addItem: (item) => {
         const now = new Date().toISOString();
+        const id = generateId();
         const newItem: Item = {
           ...item,
-          id: generateId(),
+          id,
           createdAt: now,
           updatedAt: now,
         };
         set((state) => ({
           items: [...state.items, newItem],
         }));
+
+        // Background sync to Supabase
+        const user = useAuthStore.getState().user;
+        if (user?.id) {
+          supabase.from('items').insert({
+            id,
+            user_id: user.id,
+            container_id: item.containerId,
+            name: item.name,
+            tags: item.tags,
+            quantity: item.quantity,
+            notes: item.notes,
+            expiry_date: item.expiryDate,
+          }).then(({ error }) => {
+            if (error) console.error('Supabase sync error (items):', error);
+          });
+        }
+
         return newItem;
       },
 
@@ -206,64 +321,148 @@ const useStorageStore = create<StorageStore>()(
             item.id === id ? { ...item, ...updates, updatedAt: new Date().toISOString() } : item
           ),
         }));
+
+        // Update Supabase
+        supabase.from('items').update({
+          name: updates.name,
+          tags: updates.tags,
+          quantity: updates.quantity,
+          notes: updates.notes,
+          expiry_date: updates.expiryDate,
+          updated_at: new Date().toISOString(),
+        }).eq('id', id).then(({ error }) => {
+          if (error) console.error('Supabase update error:', error);
+        });
       },
 
       deleteItem: (id) => {
         set((state) => ({
           items: state.items.filter((item) => item.id !== id),
         }));
-      },
 
-      // Category actions
-      addCategory: (category) => {
-        const newCategory: Category = {
-          ...category,
-          id: generateId(),
-        };
-        set((state) => ({
-          categories: [...state.categories, newCategory],
-        }));
-        return newCategory;
-      },
-
-      updateCategory: (id, updates) => {
-        set((state) => ({
-          categories: state.categories.map((cat) =>
-            cat.id === id ? { ...cat, ...updates } : cat
-          ),
-        }));
-      },
-
-      deleteCategory: (id) => {
-        set((state) => ({
-          categories: state.categories.filter((cat) => cat.id !== id),
-        }));
+        // Delete from Supabase
+        supabase.from('items').delete().eq('id', id).then(({ error }) => {
+          if (error) console.error('Supabase delete error:', error);
+        });
       },
 
       // Search
       search: (query) => {
-        const { items, containers } = get();
+        const { items, containers, locations } = get();
         const lowerQuery = query.toLowerCase().trim();
+        const words = lowerQuery.split(/\s+/);
 
         if (!lowerQuery) {
-          return { items: [], containers: [] };
+          return { items: [], containers: [], locations: [] };
         }
 
-        const matchedItems = items.filter(
-          (item) =>
-            item.name.toLowerCase().includes(lowerQuery) ||
-            item.tags.some((tag) => tag.toLowerCase().includes(lowerQuery)) ||
-            item.notes?.toLowerCase().includes(lowerQuery)
-        );
+        const matchedItems = items
+          .map(item => {
+            let score = 0;
+            const itemName = item.name.toLowerCase();
+            const itemTags = (item.tags || []).map(t => t.toLowerCase());
+            const itemNotes = (item.notes || '').toLowerCase();
 
-        const matchedContainers = containers.filter(
-          (c) =>
-            c.code.toLowerCase().includes(lowerQuery) ||
-            c.category.toLowerCase().includes(lowerQuery) ||
-            c.description?.toLowerCase().includes(lowerQuery)
-        );
+            if (itemName === lowerQuery) score += 100;
+            else if (itemName.includes(lowerQuery)) score += 50;
 
-        return { items: matchedItems, containers: matchedContainers };
+            for (const word of words) {
+              if (itemName.includes(word)) score += 20;
+              if (itemTags.some(t => t.includes(word))) score += 15;
+              if (itemNotes.includes(word)) score += 5;
+            }
+
+            return { ...item, searchScore: score };
+          })
+          .filter(item => (item as any).searchScore > 0)
+          .sort((a, b) => (b as any).searchScore - (a as any).searchScore);
+
+        const matchedContainers = containers
+          .map(c => {
+            let score = 0;
+            const code = c.code.toLowerCase();
+            const category = c.category.toLowerCase();
+            const desc = (c.description || '').toLowerCase();
+
+            if (code === lowerQuery) score += 100;
+            if (category === lowerQuery) score += 80;
+            
+            for (const word of words) {
+              if (code.includes(word)) score += 30;
+              if (category.includes(word)) score += 25;
+              if (desc.includes(word)) score += 10;
+            }
+
+            return { ...c, searchScore: score };
+          })
+          .filter(c => (c as any).searchScore > 0)
+          .sort((a, b) => (b as any).searchScore - (a as any).searchScore);
+
+        const matchedLocations = locations
+          .map(l => {
+            let score = 0;
+            const name = l.name.toLowerCase();
+            const code = l.code.toLowerCase();
+
+            if (name === lowerQuery) score += 100;
+            if (code === lowerQuery) score += 80;
+
+            for (const word of words) {
+              if (name.includes(word)) score += 30;
+              if (code.includes(word)) score += 20;
+            }
+
+            return { ...l, searchScore: score };
+          })
+          .filter(l => (l as any).searchScore > 0)
+          .sort((a, b) => (b as any).searchScore - (a as any).searchScore);
+
+        return { 
+          items: matchedItems.map(({ searchScore, ...i }: any) => i as Item), 
+          containers: matchedContainers.map(({ searchScore, ...c }: any) => c as Container),
+          locations: matchedLocations.map(({ searchScore, ...l }: any) => l as Location)
+        };
+      },
+
+      fetchData: async () => {
+        const { data: containers, error: cError } = await supabase
+          .from('containers')
+          .select('*');
+        
+        const { data: items, error: iError } = await supabase
+          .from('items')
+          .select('*');
+
+        if (cError || iError) {
+          console.error('Fetch error:', cError || iError);
+          return;
+        }
+
+        set({
+          containers: (containers || []).map(c => ({
+            id: c.id,
+            code: c.code,
+            locationId: c.location_id,
+            category: c.category,
+            description: c.description,
+            photoUrl: c.photo_url,
+            createdAt: c.created_at,
+            updatedAt: c.updated_at,
+            lastViewedAt: c.last_viewed_at,
+            viewCount: c.view_count || 0,
+          })),
+          items: (items || []).map(i => ({
+            id: i.id,
+            containerId: i.container_id,
+            name: i.name,
+            tags: i.tags || [],
+            quantity: i.quantity,
+            notes: i.notes,
+            expiryDate: i.expiry_date,
+            createdAt: i.created_at,
+            updatedAt: i.updated_at,
+          }))
+        });
       },
     }),
     {

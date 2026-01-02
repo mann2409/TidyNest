@@ -25,7 +25,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="boxes"
         options={{
-          title: 'All Boxes',
+          title: 'Boxes',
           tabBarIcon: ({ color, size }) => <Box size={size} color={color} />,
         }}
       />

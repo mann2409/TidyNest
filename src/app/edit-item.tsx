@@ -19,6 +19,7 @@ export default function EditItemScreen() {
   const [name, setName] = useState('');
   const [quantity, setQuantity] = useState('');
   const [notes, setNotes] = useState('');
+  const [expiryDate, setExpiryDate] = useState('');
   const [tagInput, setTagInput] = useState('');
   const [tags, setTags] = useState<string[]>([]);
 
@@ -28,6 +29,7 @@ export default function EditItemScreen() {
       setName(item.name);
       setQuantity(item.quantity?.toString() || '');
       setNotes(item.notes || '');
+      setExpiryDate(item.expiryDate || '');
       setTags(item.tags || []);
     }
   }, [item]);
@@ -52,6 +54,7 @@ export default function EditItemScreen() {
       tags,
       quantity: quantity ? parseInt(quantity, 10) : undefined,
       notes: notes.trim() || undefined,
+      expiryDate: expiryDate.trim() || undefined,
     });
 
     router.back();
@@ -121,6 +124,19 @@ export default function EditItemScreen() {
                 onChangeText={setQuantity}
                 keyboardType="number-pad"
               />
+            </View>
+
+            {/* Expiry Date */}
+            <View className="mt-6">
+              <Text className="text-zinc-400 text-sm mb-2">Expiry Date (optional)</Text>
+              <TextInput
+                className="bg-zinc-900 rounded-xl p-4 text-white text-base"
+                placeholder="YYYY-MM-DD"
+                placeholderTextColor="#71717a"
+                value={expiryDate}
+                onChangeText={setExpiryDate}
+              />
+              <Text className="text-zinc-600 text-xs mt-1 ml-1">Items expiring within 7 days will be highlighted.</Text>
             </View>
 
             {/* Tags */}

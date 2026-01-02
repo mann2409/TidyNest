@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { View, Text, Pressable, ScrollView, Image, Share } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -15,10 +15,17 @@ export default function ContainerDetailScreen() {
   const locations = useStorageStore((s) => s.locations);
   const deleteContainer = useStorageStore((s) => s.deleteContainer);
   const deleteItem = useStorageStore((s) => s.deleteItem);
+  const trackContainerView = useStorageStore((s) => s.trackContainerView);
 
   const container = useMemo(() => {
     return containers.find((c) => c.id === id);
   }, [containers, id]);
+
+  useEffect(() => {
+    if (id) {
+      trackContainerView(id);
+    }
+  }, [id]);
 
   const location = useMemo(() => {
     if (!container) return null;

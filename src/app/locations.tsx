@@ -78,7 +78,7 @@ export default function LocationsScreen() {
                 <TextInput
                   className="bg-zinc-800 rounded-lg p-3 text-white"
                   placeholder="e.g., Garage, Attic, Basement..."
-                  placeholderTextColor="#71717a"
+                  placeholderTextColor="#94a3b8"
                   value={newName}
                   onChangeText={setNewName}
                   autoFocus
@@ -90,7 +90,7 @@ export default function LocationsScreen() {
                 <TextInput
                   className="bg-zinc-800 rounded-lg p-3 text-white"
                   placeholder="e.g., G, AT, BS..."
-                  placeholderTextColor="#71717a"
+                  placeholderTextColor="#94a3b8"
                   value={newCode}
                   onChangeText={(text) => setNewCode(text.toUpperCase())}
                   maxLength={3}
@@ -100,18 +100,18 @@ export default function LocationsScreen() {
 
               <View className="flex-row gap-2">
                 <Pressable
-                  className="flex-1 bg-zinc-800 rounded-lg p-3 items-center"
+                  className="flex-1 bg-[#94a3b8]/10 rounded-lg p-3 items-center border border-[#94a3b8]/10"
                   onPress={() => {
                     setShowAddForm(false);
                     setNewName('');
                     setNewCode('');
                   }}
                 >
-                  <Text className="text-zinc-400 font-medium">Cancel</Text>
+                  <Text className="text-[#94a3b8] font-medium">Cancel</Text>
                 </Pressable>
                 <Pressable
                   className={`flex-1 rounded-lg p-3 items-center ${
-                    newName.trim() && newCode.trim() ? 'bg-amber-500' : 'bg-zinc-800'
+                    newName.trim() && newCode.trim() ? 'bg-amber-500' : 'bg-[#94a3b8]/5 border border-[#94a3b8]/5'
                   }`}
                   onPress={handleAdd}
                   disabled={!newName.trim() || !newCode.trim()}
@@ -120,7 +120,7 @@ export default function LocationsScreen() {
                     className={
                       newName.trim() && newCode.trim()
                         ? 'text-black font-medium'
-                        : 'text-zinc-500'
+                        : 'text-[#94a3b8]/40'
                     }
                   >
                     Add
@@ -159,7 +159,7 @@ export default function LocationsScreen() {
                       className="p-2"
                       onPress={() => handleDelete(location.id)}
                     >
-                      <Trash2 size={18} color="#71717a" />
+                      <Trash2 size={18} color="#94a3b8" />
                     </Pressable>
                   )}
                 </View>

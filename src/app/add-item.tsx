@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { View, Text, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { X, Plus, Tag } from 'lucide-react-native';
+import { X, Plus, Tag, Camera, Image as ImageIcon } from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
 import useStorageStore from '@/lib/state/storage-store';
 
 export default function AddItemScreen() {
@@ -17,8 +18,38 @@ export default function AddItemScreen() {
   const [name, setName] = useState('');
   const [quantity, setQuantity] = useState('');
   const [notes, setNotes] = useState('');
+  const [expiryDate, setExpiryDate] = useState('');
   const [tagInput, setTagInput] = useState('');
   const [tags, setTags] = useState<string[]>([]);
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setPhotoUri(result.assets[0].uri);
+    }
+  };
+
+  const takePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setPhotoUri(result.assets[0].uri);
+    }
+  };
 
   const handleAddTag = () => {
     const trimmed = tagInput.trim().toLowerCase();
@@ -41,6 +72,8 @@ export default function AddItemScreen() {
       tags,
       quantity: quantity ? parseInt(quantity, 10) : undefined,
       notes: notes.trim() || undefined,
+      expiryDate: expiryDate.trim() || undefined,
+      photoUrl: photoUri || undefined,
     });
 
     router.back();
@@ -64,9 +97,9 @@ export default function AddItemScreen() {
             <Pressable
               onPress={handleSave}
               disabled={!canSave}
-              className={`px-4 py-2 rounded-full ${canSave ? 'bg-amber-500' : 'bg-zinc-800'}`}
+              className={`px-4 py-2 rounded-full ${canSave ? 'bg-amber-500' : 'bg-[#94a3b8]/10 border border-[#94a3b8]/10'}`}
             >
-              <Text className={canSave ? 'text-black font-semibold' : 'text-zinc-500'}>Save</Text>
+              <Text className={canSave ? 'text-black font-semibold' : 'text-[#94a3b8]/40 font-medium'}>Save</Text>
             </Pressable>
           </View>
 
@@ -78,6 +111,43 @@ export default function AddItemScreen() {
                 <Text className="text-zinc-400 ml-2">Adding item to this box</Text>
               </View>
             )}
+
+            {/* Photo Section */}
+            <View className="mt-6">
+              <Text className="text-zinc-400 text-sm mb-2">Item Photo (optional)</Text>
+              {photoUri ? (
+                <View className="relative">
+                  <Image
+                    source={{ uri: photoUri }}
+                    className="w-full h-48 rounded-xl"
+                    resizeMode="cover"
+                  />
+                  <Pressable
+                    className="absolute top-2 right-2 w-8 h-8 bg-black/60 rounded-full items-center justify-center"
+                    onPress={() => setPhotoUri(null)}
+                  >
+                    <X size={16} color="#fff" />
+                  </Pressable>
+                </View>
+              ) : (
+                <View className="flex-row gap-3">
+                  <Pressable
+                    className="flex-1 bg-[#94a3b8]/5 rounded-xl p-4 items-center border border-[#94a3b8]/10 active:opacity-80"
+                    onPress={takePhoto}
+                  >
+                    <Camera size={24} color="#94a3b8" />
+                    <Text className="text-[#94a3b8] mt-2 font-medium">Take Photo</Text>
+                  </Pressable>
+                  <Pressable
+                    className="flex-1 bg-[#94a3b8]/5 rounded-xl p-4 items-center border border-[#94a3b8]/10 active:opacity-80"
+                    onPress={pickImage}
+                  >
+                    <ImageIcon size={24} color="#94a3b8" />
+                    <Text className="text-[#94a3b8] mt-2 font-medium">Upload</Text>
+                  </Pressable>
+                </View>
+              )}
+            </View>
 
             {/* Item Name */}
             <View className="mt-6">
@@ -105,15 +175,28 @@ export default function AddItemScreen() {
               />
             </View>
 
+            {/* Expiry Date */}
+            <View className="mt-6">
+              <Text className="text-zinc-400 text-sm mb-2">Expiry Date (optional)</Text>
+              <TextInput
+                className="bg-zinc-900 rounded-xl p-4 text-white text-base"
+                placeholder="YYYY-MM-DD"
+                placeholderTextColor="#71717a"
+                value={expiryDate}
+                onChangeText={setExpiryDate}
+              />
+              <Text className="text-zinc-600 text-xs mt-1 ml-1">Items expiring within 7 days will be highlighted.</Text>
+            </View>
+
             {/* Tags */}
             <View className="mt-6">
               <Text className="text-zinc-400 text-sm mb-2">Tags (optional)</Text>
-              <View className="flex-row items-center bg-zinc-900 rounded-xl overflow-hidden">
-                <Tag size={20} color="#71717a" className="ml-4" />
+              <View className="flex-row items-center bg-zinc-900 rounded-xl overflow-hidden border border-zinc-800">
+                <Tag size={20} color="#94a3b8" className="ml-4" />
                 <TextInput
                   className="flex-1 p-4 text-white text-base"
                   placeholder="Add tags for easy search..."
-                  placeholderTextColor="#71717a"
+                  placeholderTextColor="#94a3b8"
                   value={tagInput}
                   onChangeText={setTagInput}
                   onSubmitEditing={handleAddTag}

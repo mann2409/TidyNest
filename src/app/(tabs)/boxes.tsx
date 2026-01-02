@@ -36,11 +36,11 @@ export default function BoxesScreen() {
         {/* Header */}
         <View className="flex-row items-center justify-between py-4">
           <View>
-            <Text className="text-3xl font-bold text-white">All Boxes</Text>
-            <Text className="text-zinc-400 mt-1">{containers.length} boxes total</Text>
+            <Text className="text-3xl font-bold text-white tracking-tight">All Boxes</Text>
+            <Text className="text-[#94a3b8]/60 mt-1 uppercase text-[10px] font-bold tracking-widest">{containers.length} boxes total</Text>
           </View>
           <Pressable
-            className="w-12 h-12 bg-amber-500 rounded-full items-center justify-center active:opacity-80"
+            className="w-12 h-12 bg-amber-500 rounded-full items-center justify-center active:opacity-80 shadow-lg shadow-amber-500/20"
             onPress={() => router.push('/add-container')}
           >
             <Plus size={24} color="#000" />
@@ -81,24 +81,24 @@ export default function BoxesScreen() {
                     return (
                       <Pressable
                         key={container.id}
-                        className="bg-zinc-900 rounded-xl p-4 mb-2 flex-row items-center active:opacity-80"
+                        className="bg-zinc-900 rounded-xl p-4 mb-2 flex-row items-center active:opacity-80 border border-zinc-800/50"
                         onPress={() => router.push(`/container/${container.id}`)}
                       >
-                        <View className="w-12 h-12 bg-zinc-800 rounded-xl items-center justify-center mr-3">
-                          <Box size={24} color="#f59e0b" />
+                        <View className="w-12 h-12 bg-[#94a3b8]/10 rounded-xl items-center justify-center mr-3">
+                          <Box size={24} color="#94a3b8" />
                         </View>
                         <View className="flex-1">
                           <Text className="text-amber-500 font-bold text-base">{container.code}</Text>
                           {container.description && (
-                            <Text className="text-zinc-400 text-sm mt-0.5" numberOfLines={1}>
+                            <Text className="text-[#94a3b8] text-sm mt-0.5" numberOfLines={1}>
                               {container.description}
                             </Text>
                           )}
-                          <Text className="text-zinc-500 text-xs mt-1">
+                          <Text className="text-[#94a3b8]/60 text-[10px] mt-1 uppercase font-bold tracking-tighter">
                             {itemCount} item{itemCount !== 1 ? 's' : ''} • {container.category}
                           </Text>
                         </View>
-                        <ChevronRight size={20} color="#71717a" />
+                        <ChevronRight size={20} color="#94a3b8" />
                       </Pressable>
                     );
                   })}

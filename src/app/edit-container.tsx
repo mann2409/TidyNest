@@ -87,29 +87,35 @@ export default function EditContainerScreen() {
       const dataUrl = `data:${mimeType};base64,${base64}`;
 
       // Call OpenAI Vision API
-      const response = await fetch('https://api.openai.com/v1/responses', {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${process.env.EXPO_PUBLIC_VIBECODE_OPENAI_API_KEY}`,
         },
         body: JSON.stringify({
-          model: 'gpt-5.2',
-          input: [{
+          model: 'gpt-4o',
+          messages: [{
             role: 'user',
             content: [
               {
-                type: 'input_text',
+                type: 'text',
                 text: 'Look at this storage box or container photo. List ALL individual items you can see in the image. Be specific with item names (e.g., "Phillips screwdriver" instead of just "tool"). Also suggest ONE category from: TOOLS, ELEC, TAPE, PAINT, GARDEN, CAMPING, XMAS, KITCHEN, CLEAN, OFFICE, KIDS, SPORTS, AUTO, PLUMB, CRAFT, MISC. Respond ONLY in this JSON format: {"items": ["item1", "item2", "item3"], "category": "CATEGORY"}'
               },
-              { type: 'input_image', image_url: dataUrl },
+              { 
+                type: 'image_url', 
+                image_url: {
+                  url: dataUrl 
+                }
+              },
             ],
           }],
+          response_format: { type: "json_object" }
         }),
       });
 
       const data = await response.json();
-      const outputText = data.output?.[0]?.content?.[0]?.text || '';
+      const outputText = data.choices?.[0]?.message?.content || '';
 
       // Parse JSON response
       const jsonMatch = outputText.match(/\{[\s\S]*\}/);
@@ -145,6 +151,12 @@ export default function EditContainerScreen() {
   const toggleItemSelection = (index: number) => {
     setSuggestedItems(prev => prev.map((item, i) =>
       i === index ? { ...item, selected: !item.selected } : item
+    ));
+  };
+
+  const handleUpdateItemName = (index: number, newName: string) => {
+    setSuggestedItems(prev => prev.map((item, i) => 
+      i === index ? { ...item, name: newName } : item
     ));
   };
 
@@ -218,9 +230,9 @@ export default function EditContainerScreen() {
           <Pressable
             onPress={handleSave}
             disabled={!canSave}
-            className={`px-4 py-2 rounded-full ${canSave ? 'bg-amber-500' : 'bg-zinc-800'}`}
+            className={`px-4 py-2 rounded-full ${canSave ? 'bg-amber-500' : 'bg-[#94a3b8]/10 border border-[#94a3b8]/10'}`}
           >
-            <Text className={canSave ? 'text-black font-semibold' : 'text-zinc-500'}>Save</Text>
+            <Text className={canSave ? 'text-black font-semibold' : 'text-[#94a3b8]/40 font-medium'}>Save</Text>
           </Pressable>
         </View>
 
@@ -240,10 +252,10 @@ export default function EditContainerScreen() {
               className="bg-zinc-900 rounded-xl p-4 flex-row items-center justify-between"
               onPress={() => setShowLocationPicker(!showLocationPicker)}
             >
-              <Text className={selectedLocation ? 'text-white' : 'text-zinc-500'}>
+              <Text className={selectedLocation ? 'text-white' : 'text-[#94a3b8]/60'}>
                 {selectedLocation ? `${selectedLocation.name} (${selectedLocation.code})` : 'Choose a location...'}
               </Text>
-              <ChevronDown size={20} color="#71717a" />
+              <ChevronDown size={20} color="#94a3b8" />
             </Pressable>
 
             {showLocationPicker && (
@@ -324,29 +336,29 @@ export default function EditContainerScreen() {
                 </Pressable>
                 {!isAnalyzing && (
                   <Pressable
-                    className="absolute bottom-2 right-2 flex-row items-center bg-amber-500 px-3 py-2 rounded-full"
+                    className="absolute bottom-2 right-2 flex-row items-center bg-[#94a3b8]/20 px-3 py-2 rounded-full border border-[#94a3b8]/20"
                     onPress={handleAnalyzeCurrentPhoto}
                   >
-                    <Sparkles size={16} color="#000" />
-                    <Text className="text-black font-medium ml-1">Detect Items</Text>
+                    <Sparkles size={16} color="#94a3b8" />
+                    <Text className="text-[#94a3b8] font-medium ml-1">Detect Items</Text>
                   </Pressable>
                 )}
               </View>
             ) : (
               <View className="flex-row gap-3">
                 <Pressable
-                  className="flex-1 bg-zinc-900 rounded-xl p-6 items-center active:opacity-80"
+                  className="flex-1 bg-[#94a3b8]/5 rounded-xl p-6 items-center active:opacity-80 border border-[#94a3b8]/10"
                   onPress={takePhoto}
                 >
-                  <Camera size={32} color="#f59e0b" />
-                  <Text className="text-white mt-2">Camera</Text>
+                  <Camera size={32} color="#94a3b8" />
+                  <Text className="text-[#94a3b8] mt-2">Camera</Text>
                 </Pressable>
                 <Pressable
-                  className="flex-1 bg-zinc-900 rounded-xl p-6 items-center active:opacity-80"
+                  className="flex-1 bg-[#94a3b8]/5 rounded-xl p-6 items-center active:opacity-80 border border-[#94a3b8]/10"
                   onPress={pickImage}
                 >
-                  <ImageIcon size={32} color="#f59e0b" />
-                  <Text className="text-white mt-2">Gallery</Text>
+                  <ImageIcon size={32} color="#94a3b8" />
+                  <Text className="text-[#94a3b8] mt-2">Gallery</Text>
                 </Pressable>
               </View>
             )}
@@ -369,19 +381,29 @@ export default function EditContainerScreen() {
               </Text>
               <View className="flex-row flex-wrap gap-2">
                 {suggestedItems.map((item, index) => (
-                  <Pressable
-                    key={index}
-                    className={`px-3 py-2 rounded-full border ${
-                      item.selected
-                        ? 'bg-amber-500 border-amber-500'
-                        : 'bg-zinc-800 border-zinc-700'
-                    }`}
-                    onPress={() => toggleItemSelection(index)}
-                  >
-                    <Text className={item.selected ? 'text-black font-medium' : 'text-zinc-300'}>
-                      {item.name}
-                    </Text>
-                  </Pressable>
+                  <View key={index} className="flex-row items-center bg-zinc-800 rounded-full border border-zinc-700 pl-3 pr-1 py-1 mb-1">
+                    <Pressable
+                      onPress={() => toggleItemSelection(index)}
+                      className="flex-row items-center mr-2"
+                    >
+                      <View className={`w-4 h-4 rounded border items-center justify-center mr-2 ${item.selected ? 'bg-amber-500 border-amber-500' : 'border-zinc-600'}`}>
+                        {item.selected && <Check size={12} color="#000" />}
+                      </View>
+                      <TextInput
+                        className={`text-sm ${item.selected ? 'text-amber-500 font-bold' : 'text-zinc-300'}`}
+                        value={item.name}
+                        onChangeText={(text) => handleUpdateItemName(index, text)}
+                        placeholder="Item name..."
+                        placeholderTextColor="#3f3f46"
+                      />
+                    </Pressable>
+                    <Pressable 
+                      onPress={() => setSuggestedItems(items => items.filter((_, i) => i !== index))}
+                      className="p-1"
+                    >
+                      <X size={14} color="#3f3f46" />
+                    </Pressable>
+                  </View>
                 ))}
               </View>
               {selectedCount > 0 && (
