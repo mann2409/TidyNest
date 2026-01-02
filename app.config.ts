@@ -12,6 +12,7 @@ const config: ExpoConfig = {
   ios: {
     supportsTablet: true,
     bundleIdentifier: "com.vibecode.homebox",
+    buildNumber: "2",
     infoPlist: {
       NSCameraUsageDescription: "This app uses the camera to take photos of your storage boxes and items.",
       NSPhotoLibraryUsageDescription: "This app uses the photo library to allow you to upload photos of your storage boxes and items.",
