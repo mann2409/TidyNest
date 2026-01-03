@@ -130,7 +130,7 @@ const useStorageStore = create<StorageStore>()(
           id: generateId(),
         };
         set((state) => ({
-          locations: [...state.locations, newLocation],
+          locations: [newLocation, ...state.locations],
         }));
         return newLocation;
       },
@@ -181,7 +181,7 @@ const useStorageStore = create<StorageStore>()(
           updatedAt: now,
         };
         set((state) => ({
-          containers: [...state.containers, newContainer],
+          containers: [newContainer, ...state.containers],
         }));
 
         // Background sync to Supabase
@@ -292,7 +292,7 @@ const useStorageStore = create<StorageStore>()(
           updatedAt: now,
         };
         set((state) => ({
-          items: [...state.items, newItem],
+          items: [newItem, ...state.items],
         }));
 
         // Background sync to Supabase
@@ -425,17 +425,35 @@ const useStorageStore = create<StorageStore>()(
       },
 
       fetchData: async () => {
+        const user = useAuthStore.getState().user;
+        if (!user) {
+          console.warn('Fetch failed: No user found in AuthStore');
+          return;
+        }
+
+        console.log('Fetching data for User ID:', user.id);
+
         const { data: containers, error: cError } = await supabase
           .from('containers')
-          .select('*');
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
         
         const { data: items, error: iError } = await supabase
           .from('items')
-          .select('*');
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
 
         if (cError || iError) {
-          console.error('Fetch error:', cError || iError);
+          console.error('Supabase fetch error details:', { cError, iError });
           return;
+        }
+
+        if (!containers || containers.length === 0) {
+          console.warn('Supabase returned 0 containers for this user ID.');
+        } else {
+          console.log(`Successfully fetched ${containers.length} containers from Supabase`);
         }
 
         set({

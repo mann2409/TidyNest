@@ -1,5 +1,6 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack, useRouter, useSegments } from 'expo-router';
+import '../../global.css';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from '@/lib/useColorScheme';
@@ -61,7 +62,7 @@ function RootLayoutNav({ colorScheme }: { colorScheme: 'light' | 'dark' | null |
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-  const setSession = useAuthStore((s) => s.setSession);
+  const { setSession, initialized } = useAuthStore();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -76,8 +77,18 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
-    SplashScreen.hideAsync();
-  }, []);
+    // Hide splash screen when initialized OR after 3 seconds fallback
+    const hideSplash = async () => {
+      await SplashScreen.hideAsync();
+    };
+
+    if (initialized) {
+      hideSplash();
+    } else {
+      const timeout = setTimeout(hideSplash, 3000);
+      return () => clearTimeout(timeout);
+    }
+  }, [initialized]);
 
   return (
     <QueryClientProvider client={queryClient}>

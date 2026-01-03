@@ -1,8 +1,8 @@
-import { useMemo } from 'react';
-import { View, Text, Pressable, FlatList } from 'react-native';
+import { useMemo, useState } from 'react';
+import { View, Text, Pressable, FlatList, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Box, Plus, ChevronRight } from 'lucide-react-native';
+import { Box, Plus, ChevronRight, MapPin } from 'lucide-react-native';
 import useStorageStore from '@/lib/state/storage-store';
 
 export default function BoxesScreen() {
@@ -10,6 +10,7 @@ export default function BoxesScreen() {
   const containers = useStorageStore((s) => s.containers);
   const items = useStorageStore((s) => s.items);
   const locations = useStorageStore((s) => s.locations);
+  const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
 
   const getLocation = (locationId: string) => {
     return locations.find((l) => l.id === locationId);
@@ -28,7 +29,16 @@ export default function BoxesScreen() {
     return groups;
   }, [containers]);
 
-  const locationIds = Object.keys(groupedContainers);
+  const filteredLocationIds = useMemo(() => {
+    const ids = Object.keys(groupedContainers);
+    if (!selectedLocationId) return ids;
+    return ids.filter(id => id === selectedLocationId);
+  }, [groupedContainers, selectedLocationId]);
+
+  const activeLocations = useMemo(() => {
+    const idsWithData = Object.keys(groupedContainers);
+    return locations.filter(l => idsWithData.includes(l.id));
+  }, [locations, groupedContainers]);
 
   return (
     <SafeAreaView className="flex-1 bg-zinc-950" edges={['top']}>
@@ -37,7 +47,11 @@ export default function BoxesScreen() {
         <View className="flex-row items-center justify-between py-4">
           <View>
             <Text className="text-3xl font-bold text-white tracking-tight">All Boxes</Text>
-            <Text className="text-[#94a3b8]/60 mt-1 uppercase text-[10px] font-bold tracking-widest">{containers.length} boxes total</Text>
+            <Text className="text-[#94a3b8]/60 mt-1 uppercase text-[10px] font-bold tracking-widest">
+              {selectedLocationId 
+                ? `${groupedContainers[selectedLocationId]?.length || 0} boxes in ${getLocation(selectedLocationId)?.name}`
+                : `${containers.length} boxes total`}
+            </Text>
           </View>
           <Pressable
             className="w-12 h-12 bg-amber-500 rounded-full items-center justify-center active:opacity-80 shadow-lg shadow-amber-500/20"
@@ -46,6 +60,42 @@ export default function BoxesScreen() {
             <Plus size={24} color="#000" />
           </Pressable>
         </View>
+
+        {/* Location Filter Strip */}
+        {activeLocations.length > 0 && (
+          <View className="mb-4">
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
+              <Pressable
+                onPress={() => setSelectedLocationId(null)}
+                className={`flex-row items-center px-4 py-2 rounded-xl mr-2 border ${
+                  selectedLocationId === null 
+                    ? 'bg-amber-500 border-amber-500' 
+                    : 'bg-zinc-900 border-zinc-800'
+                }`}
+              >
+                <Text className={`font-bold ${selectedLocationId === null ? 'text-black' : 'text-zinc-300'}`}>
+                  All
+                </Text>
+              </Pressable>
+              {activeLocations.map((loc) => (
+                <Pressable
+                  key={loc.id}
+                  onPress={() => setSelectedLocationId(selectedLocationId === loc.id ? null : loc.id)}
+                  className={`flex-row items-center px-4 py-2 rounded-xl mr-2 border ${
+                    selectedLocationId === loc.id 
+                      ? 'bg-amber-500 border-amber-500' 
+                      : 'bg-zinc-900 border-zinc-800'
+                  }`}
+                >
+                  <MapPin size={14} color={selectedLocationId === loc.id ? '#000' : '#94a3b8'} className="mr-2" />
+                  <Text className={`font-bold ${selectedLocationId === loc.id ? 'text-black' : 'text-zinc-300'}`}>
+                    {loc.name}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        )}
 
         {containers.length === 0 ? (
           <View className="flex-1 items-center justify-center">
@@ -59,7 +109,7 @@ export default function BoxesScreen() {
           </View>
         ) : (
           <FlatList
-            data={locationIds}
+            data={filteredLocationIds}
             keyExtractor={(item) => item}
             showsVerticalScrollIndicator={false}
             renderItem={({ item: locationId }) => {

@@ -31,10 +31,19 @@ export const useAuthStore = create<AuthStore>()(
       storage: createJSONStorage(() => AsyncStorage),
       onRehydrateStorage: () => (state) => {
         if (state) {
-          state.initialized = true;
+          // Add a small delay to ensure everything is ready
+          setTimeout(() => {
+            state.setInitialized(true);
+          }, 0);
         }
       },
     }
   )
 );
+
+// Add helper to set initialized since it's missing in the interface
+useAuthStore.setState((state: any) => ({
+  ...state,
+  setInitialized: (val: boolean) => useAuthStore.setState({ initialized: val })
+}));
 
