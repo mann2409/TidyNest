@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_VIBECODE_SUPABASE_URL || 'https://rppuasibduwtnnofjavm.supabase.co';
 const supabaseAnonKey = process.env.EXPO_PUBLIC_VIBECODE_SUPABASE_ANON_KEY || 'MISSING_KEY';
@@ -7,7 +8,14 @@ if (supabaseAnonKey === 'MISSING_KEY') {
   console.error('CRITICAL: Supabase Anon Key is missing! The app will crash or fail to auth.');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    storage: AsyncStorage,
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false,
+  },
+});
 
 // Helper to sync containers
 export async function syncContainer(container: any) {

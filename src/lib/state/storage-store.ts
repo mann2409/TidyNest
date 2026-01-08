@@ -53,6 +53,7 @@ interface StorageStore {
   items: Item[];
   categories: Category[];
   customCategories: string[]; // Keep for backward compatibility or transition
+  remoteConfig: Record<string, string>;
 
   // Location actions
   addLocation: (location: Omit<Location, 'id'>) => Location;
@@ -80,6 +81,7 @@ interface StorageStore {
 
   // Sync actions
   fetchData: () => Promise<void>;
+  clearData: () => void;
 }
 
 const generateId = () => uuidv4();
@@ -122,6 +124,7 @@ const useStorageStore = create<StorageStore>()(
       items: [],
       categories: defaultCategories,
       customCategories: [],
+      remoteConfig: {},
 
       // Location actions
       addLocation: (location) => {
@@ -185,21 +188,36 @@ const useStorageStore = create<StorageStore>()(
         }));
 
         // Background sync to Supabase
-        const user = useAuthStore.getState().user;
-        if (user?.id) {
-          supabase.from('containers').insert({
+        void (async () => {
+          const { data: u, error: uErr } = await supabase.auth.getUser();
+          const userId = u.user?.id;
+          if (uErr || !userId) {
+            console.error('Supabase sync skipped (containers): no authenticated user', { uErr });
+            return;
+          }
+
+          const { error } = await supabase.from('containers').upsert({
             id,
-            user_id: user.id,
+            user_id: userId,
             name: container.code,
             code: container.code,
             location_id: container.locationId,
             category: container.category,
             description: container.description,
             photo_url: container.photoUrl,
-          }).then(({ error }) => {
-            if (error) console.error('Supabase sync error (containers):', error);
+            updated_at: now,
           });
-        }
+
+          if (error) {
+            console.error('Supabase sync error (containers):', {
+              message: error.message,
+              code: (error as any).code,
+              details: (error as any).details,
+              hint: (error as any).hint,
+              userId,
+            });
+          }
+        })();
 
         return newContainer;
       },
@@ -296,21 +314,36 @@ const useStorageStore = create<StorageStore>()(
         }));
 
         // Background sync to Supabase
-        const user = useAuthStore.getState().user;
-        if (user?.id) {
-          supabase.from('items').insert({
+        void (async () => {
+          const { data: u, error: uErr } = await supabase.auth.getUser();
+          const userId = u.user?.id;
+          if (uErr || !userId) {
+            console.error('Supabase sync skipped (items): no authenticated user', { uErr });
+            return;
+          }
+
+          const { error } = await supabase.from('items').upsert({
             id,
-            user_id: user.id,
+            user_id: userId,
             container_id: item.containerId,
             name: item.name,
             tags: item.tags,
             quantity: item.quantity,
             notes: item.notes,
             expiry_date: item.expiryDate,
-          }).then(({ error }) => {
-            if (error) console.error('Supabase sync error (items):', error);
+            updated_at: now,
           });
-        }
+
+          if (error) {
+            console.error('Supabase sync error (items):', {
+              message: error.message,
+              code: (error as any).code,
+              details: (error as any).details,
+              hint: (error as any).hint,
+              userId,
+            });
+          }
+        })();
 
         return newItem;
       },
@@ -480,6 +513,25 @@ const useStorageStore = create<StorageStore>()(
             createdAt: i.created_at,
             updatedAt: i.updated_at,
           }))
+        });
+
+        // Fetch remote config
+        const { data: config } = await supabase
+          .from('app_config')
+          .select('key, value');
+        
+        if (config) {
+          const configMap = config.reduce((acc, curr) => ({ ...acc, [curr.key]: curr.value }), {});
+          set({ remoteConfig: configMap });
+        }
+      },
+
+      clearData: () => {
+        set({
+          containers: [],
+          items: [],
+          customCategories: [],
+          // We keep defaultLocations and defaultCategories
         });
       },
     }),

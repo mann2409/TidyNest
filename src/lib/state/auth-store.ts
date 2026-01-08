@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "@/lib/supabase";
 import { Session, User } from "@supabase/supabase-js";
+import useStorageStore from "./storage-store";
 
 interface AuthStore {
   session: Session | null;
@@ -10,11 +11,12 @@ interface AuthStore {
   initialized: boolean;
   setSession: (session: Session | null) => void;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<{ error: string | null }>;
 }
 
 export const useAuthStore = create<AuthStore>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       session: null,
       user: null,
       initialized: false,
@@ -23,7 +25,31 @@ export const useAuthStore = create<AuthStore>()(
       },
       signOut: async () => {
         await supabase.auth.signOut();
+        useStorageStore.getState().clearData();
         set({ session: null, user: null });
+      },
+      deleteAccount: async () => {
+        const { session } = get();
+        if (!session?.access_token) return { error: "No session found" };
+
+        try {
+          const { data, error } = await supabase.functions.invoke('auth-delete-account');
+          
+          if (error) {
+            console.error('Account deletion function error:', error);
+            return { error: error.message };
+          }
+
+          // If successful, sign out locally
+          await supabase.auth.signOut();
+          useStorageStore.getState().clearData();
+          set({ session: null, user: null });
+          
+          return { error: null };
+        } catch (err: any) {
+          console.error('Account deletion error:', err);
+          return { error: err.message || "Failed to delete account" };
+        }
       },
     }),
     {

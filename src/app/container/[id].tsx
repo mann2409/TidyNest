@@ -1,14 +1,17 @@
-import { useMemo, useState, useEffect } from 'react';
-import { View, Text, Pressable, ScrollView, Image, Share } from 'react-native';
+import { useMemo, useState, useEffect, useRef } from 'react';
+import { View, Text, Pressable, ScrollView, Image, Share, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft, Plus, Package, Trash2, QrCode, Share as ShareIcon, Pencil } from 'lucide-react-native';
 import useStorageStore from '@/lib/state/storage-store';
+import { captureRef } from 'react-native-view-shot';
+import * as Sharing from 'expo-sharing';
 
 export default function ContainerDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [showQR, setShowQR] = useState(false);
+  const qrRef = useRef<View>(null);
 
   const containers = useStorageStore((s) => s.containers);
   const items = useStorageStore((s) => s.items);
@@ -44,10 +47,27 @@ export default function ContainerDetailScreen() {
   };
 
   const handleShareQR = async () => {
-    if (container) {
-      await Share.share({
-        message: `Box ${container.code} - ${container.description || 'No description'}`,
+    if (!qrRef.current) return;
+
+    try {
+      const uri = await captureRef(qrRef, {
+        format: 'png',
+        quality: 1,
       });
+
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (isAvailable) {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'image/png',
+          dialogTitle: `Share QR Code for ${container?.code}`,
+          UTI: 'public.png',
+        });
+      } else {
+        Alert.alert('Sharing not available', 'Sharing is not supported on this device');
+      }
+    } catch (error) {
+      console.error('Error sharing QR code:', error);
+      Alert.alert('Error', 'Failed to share QR code image');
     }
   };
 
@@ -112,15 +132,20 @@ export default function ContainerDetailScreen() {
 
           {/* QR Code */}
           {showQR && (
-            <View className="bg-white rounded-2xl p-6 items-center mb-6">
+            <View ref={qrRef} collapsable={false} className="bg-white rounded-2xl p-6 items-center mb-6">
               <Image
                 source={{ uri: qrCodeUrl }}
                 style={{ width: 180, height: 180 }}
                 resizeMode="contain"
               />
               <Text className="text-black font-bold mt-4 text-lg">{container.code}</Text>
+            </View>
+          )}
+
+          {showQR && (
+            <View className="items-center mb-6">
               <Pressable
-                className="flex-row items-center mt-4 bg-zinc-100 px-4 py-2 rounded-full"
+                className="flex-row items-center bg-zinc-100 px-4 py-2 rounded-full"
                 onPress={handleShareQR}
               >
                 <ShareIcon size={16} color="#000" />

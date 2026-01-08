@@ -10,6 +10,7 @@ import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { useEffect } from 'react';
 import { useAuthStore } from '@/lib/state/auth-store';
 import { supabase } from '@/lib/supabase';
+import useStorageStore from '@/lib/state/storage-store';
 
 export const unstable_settings = {
   // Ensure that reloading on `/modal` keeps a back button present.
@@ -67,10 +68,18 @@ export default function RootLayout() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
+      if (session?.user) {
+        useStorageStore.getState().fetchData();
+      }
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
+      if (event === 'SIGNED_IN' && session?.user) {
+        useStorageStore.getState().fetchData();
+      } else if (event === 'SIGNED_OUT') {
+        useStorageStore.getState().clearData();
+      }
     });
 
     return () => subscription.unsubscribe();

@@ -14,6 +14,7 @@ export default function AddContainerScreen() {
   const addContainer = useStorageStore((s) => s.addContainer);
   const getNextContainerCode = useStorageStore((s) => s.getNextContainerCode);
   const addItem = useStorageStore((s) => s.addItem);
+  const remoteConfig = useStorageStore((s) => s.remoteConfig);
 
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
@@ -70,6 +71,12 @@ export default function AddContainerScreen() {
   };
 
   const analyzePhoto = async (uri: string) => {
+    // Check if AI analysis is disabled remotely
+    if (remoteConfig.enable_openai_vision === 'false') {
+      console.log('AI Analysis is disabled via remote config');
+      return;
+    }
+
     console.log('Starting AI analysis for:', uri);
     setIsAnalyzing(true);
     try {
@@ -204,7 +211,7 @@ export default function AddContainerScreen() {
           <Pressable
             onPress={handleSave}
             disabled={!canSave}
-            className={`px-4 py-2 rounded-full ${canSave ? 'bg-teal-500' : 'bg-[#94a3b8]/10 border border-[#94a3b8]/10'}`}
+            className={`px-4 py-2 rounded-full ${canSave ? 'bg-amber-500' : 'bg-[#94a3b8]/10 border border-[#94a3b8]/10'}`}
           >
             <Text className={canSave ? 'text-black font-semibold' : 'text-[#94a3b8]/40 font-medium'}>Save</Text>
           </Pressable>
@@ -233,12 +240,12 @@ export default function AddContainerScreen() {
                     onPress={() => handleLocationSelect(loc)}
                   >
                     <View className="flex-row items-center">
-                      <View className="w-8 h-8 bg-teal-500/20 rounded-lg items-center justify-center mr-3">
-                        <Text className="text-teal-500 font-bold text-sm">{loc.code}</Text>
+                      <View className="w-8 h-8 bg-amber-500/20 rounded-lg items-center justify-center mr-3">
+                        <Text className="text-amber-500 font-bold text-sm">{loc.code}</Text>
                       </View>
                       <Text className="text-white">{loc.name}</Text>
                     </View>
-                    {selectedLocation?.id === loc.id && <Check size={20} color="#14b8a6" />}
+                    {selectedLocation?.id === loc.id && <Check size={20} color="#f59e0b" />}
                   </Pressable>
                 ))}
               </View>
@@ -297,13 +304,13 @@ export default function AddContainerScreen() {
             {keywords.length > 0 && (
               <View className="mt-4 bg-zinc-900 rounded-xl p-4 border border-zinc-800">
                 <View className="flex-row items-center mb-2">
-                  <Sparkles size={16} color="#14b8a6" />
+                  <Sparkles size={16} color="#f59e0b" />
                   <Text className="text-[#94a3b8] ml-2 font-bold uppercase text-[10px] tracking-wider">Search Keywords</Text>
                 </View>
                 <View className="flex-row flex-wrap gap-2">
                   {keywords.map((kw, i) => (
-                    <View key={i} className="bg-teal-500/10 px-3 py-1 rounded-full">
-                      <Text className="text-teal-500 text-xs font-medium">{kw}</Text>
+                    <View key={i} className="bg-amber-500/10 px-3 py-1 rounded-full">
+                      <Text className="text-amber-500 text-xs font-medium">{kw}</Text>
                     </View>
                   ))}
                 </View>
@@ -312,11 +319,11 @@ export default function AddContainerScreen() {
 
             {/* AI Suggested Items */}
             {suggestedItems.length > 0 && (
-              <View className="mt-4 bg-teal-500/5 rounded-xl p-4 border border-teal-500/10">
+              <View className="mt-4 bg-amber-500/5 rounded-xl p-4 border border-amber-500/10">
                 <View className="flex-row items-center justify-between mb-3">
                   <View className="flex-row items-center">
-                    <Package size={16} color="#14b8a6" />
-                    <Text className="text-teal-500 ml-2 font-bold uppercase text-[10px] tracking-wider">Suggested Items to Add</Text>
+                    <Package size={16} color="#f59e0b" />
+                    <Text className="text-amber-500 ml-2 font-bold uppercase text-[10px] tracking-wider">Suggested Items to Add</Text>
                   </View>
                   <Text className="text-[#94a3b8]/60 text-[10px]">{suggestedItems.length} found</Text>
                 </View>
@@ -348,19 +355,11 @@ export default function AddContainerScreen() {
                   
                   {/* Manual Add Item */}
                   <View className="flex-row items-center gap-2 mt-2">
-                    <TextInput
-                      className="flex-1 bg-zinc-900 rounded-lg p-3 text-white border border-zinc-800"
-                      placeholder="Add another item manually..."
-                      placeholderTextColor="#94a3b8"
-                      value={newItemName}
-                      onChangeText={setNewItemName}
-                      onSubmitEditing={handleManualAddItem}
-                    />
                     <Pressable 
                       onPress={handleManualAddItem}
-                      className="bg-teal-500/10 w-12 h-12 rounded-lg items-center justify-center border border-teal-500/10 active:bg-teal-500/20"
+                      className="bg-amber-500/10 w-12 h-12 rounded-lg items-center justify-center border border-amber-500/10 active:bg-amber-500/20"
                     >
-                      <Plus size={20} color="#14b8a6" />
+                      <Plus size={20} color="#f59e0b" />
                     </Pressable>
                   </View>
                 </View>
@@ -393,7 +392,7 @@ export default function AddContainerScreen() {
                       <Text className="text-white font-medium">{cat.code}</Text>
                       <Text className="text-zinc-500 ml-2 text-xs">{cat.name}</Text>
                     </View>
-                    {category === cat.code && <Check size={20} color="#14b8a6" />}
+                    {category === cat.code && <Check size={20} color="#f59e0b" />}
                   </Pressable>
                 ))}
               </ScrollView>
@@ -404,7 +403,7 @@ export default function AddContainerScreen() {
           {suggestedCode && (
             <View className="mt-6">
               <Text className="text-zinc-400 text-sm mb-2 uppercase tracking-widest font-bold">4. Auto-Suggested Box Code</Text>
-              <View className="bg-teal-500 rounded-xl p-6 items-center shadow-lg shadow-teal-500/20">
+              <View className="bg-amber-500 rounded-xl p-6 items-center shadow-lg shadow-amber-500/20">
                 <Text className="text-black text-4xl font-black tracking-tighter">{suggestedCode}</Text>
                 <Text className="text-black/60 text-xs mt-1 font-bold">SMART GENERATED FOR {category}</Text>
               </View>

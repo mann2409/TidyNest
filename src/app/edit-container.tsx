@@ -21,6 +21,7 @@ export default function EditContainerScreen() {
   const locations = useStorageStore((s) => s.locations);
   const updateContainer = useStorageStore((s) => s.updateContainer);
   const addItem = useStorageStore((s) => s.addItem);
+  const remoteConfig = useStorageStore((s) => s.remoteConfig);
 
   const container = containers.find((c) => c.id === id);
 
@@ -75,6 +76,12 @@ export default function EditContainerScreen() {
   };
 
   const analyzePhoto = async (uri: string) => {
+    // Check if AI analysis is disabled remotely
+    if (remoteConfig.enable_openai_vision === 'false') {
+      console.log('AI Analysis is disabled via remote config');
+      return;
+    }
+
     setIsAnalyzing(true);
     setSuggestedItems([]);
 
