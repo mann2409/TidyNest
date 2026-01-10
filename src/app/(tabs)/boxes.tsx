@@ -54,7 +54,7 @@ export default function BoxesScreen() {
             </Text>
           </View>
           <Pressable
-            className="w-12 h-12 bg-amber-500 rounded-full items-center justify-center active:opacity-80 shadow-lg shadow-amber-500/20"
+            className="w-12 h-12 bg-brand-orange rounded-full items-center justify-center active:opacity-80 shadow-lg shadow-brand-orange/20"
             onPress={() => router.push('/add-container')}
           >
             <Plus size={24} color="#000" />
@@ -69,7 +69,7 @@ export default function BoxesScreen() {
                 onPress={() => setSelectedLocationId(null)}
                 className={`flex-row items-center px-4 py-2 rounded-xl mr-2 border ${
                   selectedLocationId === null 
-                    ? 'bg-amber-500 border-amber-500' 
+                    ? 'bg-brand-orange border-brand-orange' 
                     : 'bg-zinc-900 border-zinc-800'
                 }`}
               >
@@ -83,7 +83,7 @@ export default function BoxesScreen() {
                   onPress={() => setSelectedLocationId(selectedLocationId === loc.id ? null : loc.id)}
                   className={`flex-row items-center px-4 py-2 rounded-xl mr-2 border ${
                     selectedLocationId === loc.id 
-                      ? 'bg-amber-500 border-amber-500' 
+                      ? 'bg-brand-orange border-brand-orange' 
                       : 'bg-zinc-900 border-zinc-800'
                   }`}
                 >
@@ -98,14 +98,23 @@ export default function BoxesScreen() {
         )}
 
         {containers.length === 0 ? (
-          <View className="flex-1 items-center justify-center">
-            <View className="w-20 h-20 bg-zinc-900 rounded-3xl items-center justify-center mb-4">
-              <Box size={40} color="#71717a" />
+          <View className="flex-1 items-center justify-center px-8">
+            <View className="w-24 h-24 bg-brand-orange/10 rounded-3xl items-center justify-center mb-6 border-2 border-brand-orange/20">
+              <Box size={48} color="#FF9500" />
             </View>
-            <Text className="text-white text-lg font-medium">No boxes yet</Text>
-            <Text className="text-zinc-500 text-center mt-2 px-8">
-              Add your first storage box to get started
+            <Text className="text-white text-2xl font-black text-center mb-3">
+              No boxes yet? Let's create your first one!
             </Text>
+            <Text className="text-zinc-400 text-center leading-6 mb-8">
+              Scan items with AI, get auto-suggested labels, and never lose track of your stuff again.
+            </Text>
+            <Pressable
+              className="bg-brand-orange rounded-2xl px-8 py-4 active:opacity-90 shadow-lg shadow-brand-orange/30 flex-row items-center"
+              onPress={() => router.push('/add-container')}
+            >
+              <Plus size={22} color="#000" />
+              <Text className="text-black font-black text-lg ml-2">Add Your First Box</Text>
+            </Pressable>
           </View>
         ) : (
           <FlatList
@@ -119,8 +128,8 @@ export default function BoxesScreen() {
               return (
                 <View className="mb-6">
                   <View className="flex-row items-center mb-3">
-                    <View className="w-8 h-8 bg-amber-500/20 rounded-lg items-center justify-center mr-2">
-                      <Text className="text-amber-500 font-bold text-sm">{location?.code}</Text>
+                    <View className="w-8 h-8 bg-brand-orange/20 rounded-lg items-center justify-center mr-2">
+                      <Text className="text-brand-orange font-bold text-sm">{location?.code}</Text>
                     </View>
                     <Text className="text-white font-semibold text-lg">{location?.name}</Text>
                     <Text className="text-zinc-500 ml-2">({locationContainers.length})</Text>
@@ -138,7 +147,7 @@ export default function BoxesScreen() {
                           <Box size={24} color="#94a3b8" />
                         </View>
                         <View className="flex-1">
-                          <Text className="text-amber-500 font-bold text-base">{container.code}</Text>
+                          <Text className="text-brand-orange font-bold text-base">{container.code}</Text>
                           {container.description && (
                             <Text className="text-[#94a3b8] text-sm mt-0.5" numberOfLines={1}>
                               {container.description}

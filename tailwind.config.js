@@ -11,11 +11,12 @@ module.exports = {
   theme: {
     // NOTE to AI: You can extend the theme with custom colors or styles here.
     extend: {
-      // For example, you can add a primary or secondary color here.
-      // colors: {
-      //   primary: "#INSERT_VALID_HEX_CODE",
-      //   secondary: "#INSERT_VALID_HEX_CODE",
-      // },
+      // Brand colors - using exact orange from design system
+      colors: {
+        brand: {
+          orange: "#FF9500",
+        },
+      },
       fontSize: {
         xs: "10px",
         sm: "12px",

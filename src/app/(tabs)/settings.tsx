@@ -160,7 +160,7 @@ export default function SettingsScreen() {
               <Text className="text-[#94a3b8] text-xs font-medium uppercase tracking-tighter">Locations</Text>
             </View>
             <View className="items-center">
-              <Text className="text-2xl font-bold text-amber-500">{containers.length}</Text>
+              <Text className="text-2xl font-bold text-brand-orange">{containers.length}</Text>
               <Text className="text-[#94a3b8] text-xs font-medium uppercase tracking-tighter">Boxes</Text>
             </View>
             <View className="items-center">
@@ -190,14 +190,14 @@ export default function SettingsScreen() {
         <View className="flex-row justify-between items-center mb-2 px-1 mt-6">
           <Text className="text-zinc-400 text-sm">Categories</Text>
           <Pressable onPress={() => setShowCategoryInput(!showCategoryInput)}>
-            <Text className="text-amber-500 text-sm font-medium">
+            <Text className="text-brand-orange text-sm font-medium">
               {showCategoryInput ? 'Cancel' : 'Add New'}
             </Text>
           </Pressable>
         </View>
 
         {showCategoryInput && (
-          <View className="bg-zinc-900 rounded-xl p-4 flex-row items-center mb-2 border border-amber-500/30">
+          <View className="bg-zinc-900 rounded-xl p-4 flex-row items-center mb-2 border border-brand-orange/30">
             <TextInput
               className="flex-1 text-white mr-2"
               placeholder="CATEGORY NAME (e.g. HOBBY)"
@@ -209,7 +209,7 @@ export default function SettingsScreen() {
             />
             <Pressable
               onPress={handleAddCategory}
-              className="bg-amber-500 p-2 rounded-lg"
+              className="bg-brand-orange p-2 rounded-lg"
             >
               <Plus size={20} color="#000" />
             </Pressable>
@@ -225,7 +225,7 @@ export default function SettingsScreen() {
             customCategories.map((cat) => (
               <View key={cat} className="p-4 flex-row items-center justify-between border-b border-zinc-800">
                 <View className="flex-row items-center">
-                  <Tags size={18} color="#f59e0b" className="mr-3" />
+                  <Tags size={18} color="#FF9500" className="mr-3" />
                   <Text className="text-white font-medium">{cat}</Text>
                 </View>
                 <Pressable onPress={() => deleteCategory(cat)} className="p-1">
@@ -243,11 +243,11 @@ export default function SettingsScreen() {
           onPress={handleExportData}
           disabled={isExporting}
         >
-          <View className="w-10 h-10 bg-amber-500/20 rounded-xl items-center justify-center mr-3">
+          <View className="w-10 h-10 bg-brand-orange/20 rounded-xl items-center justify-center mr-3">
             {isExporting ? (
-              <ActivityIndicator size="small" color="#f59e0b" />
+              <ActivityIndicator size="small" color="#FF9500" />
             ) : (
-              <Download size={20} color="#f59e0b" />
+              <Download size={20} color="#FF9500" />
             )}
           </View>
           <View className="flex-1">
@@ -265,8 +265,8 @@ export default function SettingsScreen() {
           className="bg-zinc-900 rounded-2xl p-4 flex-row items-center active:opacity-80 mb-6 border border-zinc-800"
           onPress={() => Linking.openURL(remoteConfig.affiliate_printer_link || 'https://www.amazon.com')}
         >
-          <View className="w-12 h-12 bg-amber-500/10 rounded-xl items-center justify-center mr-4">
-            <Printer size={24} color="#f59e0b" />
+          <View className="w-12 h-12 bg-brand-orange/10 rounded-xl items-center justify-center mr-4">
+            <Printer size={24} color="#FF9500" />
           </View>
           <View className="flex-1">
             <Text className="text-white font-bold text-base">Pro Label Printer</Text>
@@ -274,8 +274,8 @@ export default function SettingsScreen() {
               The best way to organize your boxes. Durable, water-resistant labels.
             </Text>
             <View className="flex-row items-center mt-2">
-              <Text className="text-amber-500 text-xs font-bold uppercase tracking-wider">Shop on Amazon</Text>
-              <ExternalLink size={12} color="#f59e0b" className="ml-1" />
+              <Text className="text-brand-orange text-xs font-bold uppercase tracking-wider">Shop on Amazon</Text>
+              <ExternalLink size={12} color="#FF9500" className="ml-1" />
             </View>
           </View>
         </Pressable>

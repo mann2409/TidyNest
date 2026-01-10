@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { View, Text, TextInput, Pressable, KeyboardAvoidingView, Platform, ScrollView, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, Link } from 'expo-router';
-import { Mail, Lock, Loader2, ArrowRight } from 'lucide-react-native';
+import { Mail, Lock, Loader2, ArrowRight, Users, Sparkles } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/lib/state/auth-store';
 
 export default function LoginScreen() {
   const router = useRouter();
   const setSession = useAuthStore((s) => s.setSession);
+  const setGuestMode = useAuthStore((s) => s.setGuestMode);
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -31,13 +32,19 @@ export default function LoginScreen() {
       
       if (data.session) {
         setSession(data.session);
-        router.replace('/(tabs)');
+        router.replace('/welcome-survey');
       }
     } catch (e: any) {
       setError(e.message || 'Failed to sign in');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleGuestMode = () => {
+    // Continue as guest - skip to main app without authentication
+    setGuestMode(true);
+    router.replace('/welcome-survey');
   };
 
   return (
@@ -48,7 +55,7 @@ export default function LoginScreen() {
       >
         <ScrollView contentContainerStyle={{ flexGrow: 1 }} className="px-6">
           <View className="flex-1 justify-center py-12">
-            <View className="mb-12 items-center">
+            <View className="mb-8 items-center">
               <View className="w-24 h-24 bg-[#5a8d8d] rounded-3xl items-center justify-center mb-6 overflow-hidden shadow-xl shadow-[#5a8d8d]/40">
                 <Image 
                   source={require('../../../assets/logo.png')} 
@@ -58,6 +65,13 @@ export default function LoginScreen() {
               </View>
               <Text className="text-white text-4xl font-black tracking-tighter">TidyNest</Text>
               <Text className="text-zinc-500 text-lg mt-1 text-center">Smart Home Storage Solutions</Text>
+              
+              {/* Value Prop with Social Proof */}
+              <View className="flex-row items-center mt-6 bg-brand-orange/10 border border-brand-orange/20 rounded-full px-4 py-2.5">
+                <Users size={16} color="#FF9500" />
+                <Text className="text-brand-orange text-sm font-semibold ml-2">Join 10,000+ organized homes</Text>
+                <Sparkles size={16} color="#FF9500" className="ml-1" />
+              </View>
             </View>
 
             <View className="space-y-4">
@@ -82,7 +96,7 @@ export default function LoginScreen() {
                   <Text className="text-zinc-400 text-sm">Password</Text>
                   <Link href="/forgot-password" asChild>
                     <Pressable>
-                      <Text className="text-amber-500 text-sm">Forgot Password?</Text>
+                      <Text className="text-brand-orange text-sm">Forgot Password?</Text>
                     </Pressable>
                   </Link>
                 </View>
@@ -108,8 +122,8 @@ export default function LoginScreen() {
               <Pressable
                 onPress={handleLogin}
                 disabled={loading || !email || !password}
-                className={`mt-8 py-4 rounded-2xl flex-row items-center justify-center ${
-                  loading || !email || !password ? 'bg-zinc-800' : 'bg-amber-500'
+                className={`mt-6 py-4 rounded-2xl flex-row items-center justify-center ${
+                  loading || !email || !password ? 'bg-zinc-800' : 'bg-brand-orange'
                 }`}
               >
                 {loading ? (
@@ -121,13 +135,21 @@ export default function LoginScreen() {
                   </>
                 )}
               </Pressable>
+
+              {/* Continue as Guest Button */}
+              <Pressable
+                onPress={handleGuestMode}
+                className="mt-3 py-4 rounded-2xl flex-row items-center justify-center bg-zinc-900/50 border border-zinc-800"
+              >
+                <Text className="text-zinc-400 font-semibold text-base">Continue as Guest</Text>
+              </Pressable>
             </View>
 
-            <View className="mt-12 flex-row justify-center">
+            <View className="mt-8 flex-row justify-center">
               <Text className="text-zinc-500">Don't have an account? </Text>
               <Link href="/signup" asChild>
                 <Pressable>
-                  <Text className="text-amber-500 font-bold">Sign Up</Text>
+                  <Text className="text-brand-orange font-bold">Sign Up</Text>
                 </Pressable>
               </Link>
             </View>

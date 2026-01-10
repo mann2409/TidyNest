@@ -60,7 +60,7 @@ export default function LocationsScreen() {
           </Pressable>
           <Text className="text-white font-semibold text-lg">Locations</Text>
           <Pressable
-            className="w-10 h-10 bg-amber-500 rounded-full items-center justify-center"
+            className="w-10 h-10 bg-brand-orange rounded-full items-center justify-center"
             onPress={() => setShowAddForm(!showAddForm)}
           >
             <Plus size={20} color="#000" />
@@ -111,7 +111,7 @@ export default function LocationsScreen() {
                 </Pressable>
                 <Pressable
                   className={`flex-1 rounded-lg p-3 items-center ${
-                    newName.trim() && newCode.trim() ? 'bg-amber-500' : 'bg-[#94a3b8]/5 border border-[#94a3b8]/5'
+                    newName.trim() && newCode.trim() ? 'bg-brand-orange' : 'bg-[#94a3b8]/5 border border-[#94a3b8]/5'
                   }`}
                   onPress={handleAdd}
                   disabled={!newName.trim() || !newCode.trim()}
@@ -132,11 +132,31 @@ export default function LocationsScreen() {
 
           {/* Locations List */}
           <View className="mt-4">
-            <Text className="text-zinc-400 text-sm mb-2">
-              {locations.length} location{locations.length !== 1 ? 's' : ''}
-            </Text>
+            {locations.length === 0 ? (
+              <View className="flex-1 items-center justify-center px-8 py-20">
+                <View className="w-24 h-24 bg-brand-orange/10 rounded-3xl items-center justify-center mb-6 border-2 border-brand-orange/20">
+                  <MapPin size={48} color="#FF9500" />
+                </View>
+                <Text className="text-white text-2xl font-black text-center mb-3">
+                  Add your first location
+                </Text>
+                <Text className="text-zinc-400 text-center leading-6 mb-8">
+                  Locations help you organize boxes by room or area. Start with "Garage" or "Attic"!
+                </Text>
+                <Pressable
+                  className="bg-brand-orange rounded-2xl px-8 py-4 active:opacity-90 shadow-lg shadow-brand-orange/30"
+                  onPress={() => setShowAddForm(true)}
+                >
+                  <Text className="text-black font-black text-lg">Create Location</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <>
+                <Text className="text-zinc-400 text-sm mb-2">
+                  {locations.length} location{locations.length !== 1 ? 's' : ''}
+                </Text>
 
-            {locations.map((location) => {
+                {locations.map((location) => {
               const containerCount = getContainerCount(location.id);
               const canDelete = containerCount === 0;
 
@@ -145,8 +165,8 @@ export default function LocationsScreen() {
                   key={location.id}
                   className="bg-zinc-900 rounded-xl p-4 mb-2 flex-row items-center"
                 >
-                  <View className="w-12 h-12 bg-amber-500/20 rounded-xl items-center justify-center mr-3">
-                    <Text className="text-amber-500 font-bold text-lg">{location.code}</Text>
+                  <View className="w-12 h-12 bg-brand-orange/20 rounded-xl items-center justify-center mr-3">
+                    <Text className="text-brand-orange font-bold text-lg">{location.code}</Text>
                   </View>
                   <View className="flex-1">
                     <Text className="text-white font-medium">{location.name}</Text>
@@ -165,6 +185,8 @@ export default function LocationsScreen() {
                 </View>
               );
             })}
+              </>
+            )}
           </View>
 
           {/* Help Text */}

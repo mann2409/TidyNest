@@ -2,11 +2,14 @@ import { useState } from 'react';
 import { View, Text, TextInput, Pressable, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, Link } from 'expo-router';
-import { Mail, Lock, Loader2, ArrowRight, ChevronLeft } from 'lucide-react-native';
+import { Mail, Lock, Loader2, ArrowRight, ChevronLeft, Users, Sparkles } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
+import { useAuthStore } from '@/lib/state/auth-store';
 
 export default function SignupScreen() {
   const router = useRouter();
+  const setSession = useAuthStore((s) => s.setSession);
+  const setGuestMode = useAuthStore((s) => s.setGuestMode);
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -44,6 +47,12 @@ export default function SignupScreen() {
     }
   };
 
+  const handleGuestMode = () => {
+    // Continue as guest - skip to main app without authentication
+    setGuestMode(true);
+    router.replace('/(tabs)');
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-zinc-950">
       <KeyboardAvoidingView 
@@ -58,9 +67,16 @@ export default function SignupScreen() {
           </View>
 
           <View className="flex-1 justify-center pb-12">
-            <View className="mb-12">
+            <View className="mb-8">
               <Text className="text-white text-4xl font-bold">Create Account</Text>
               <Text className="text-zinc-500 text-lg mt-2">Start tracking your storage boxes</Text>
+              
+              {/* Value Prop with Social Proof */}
+              <View className="flex-row items-center mt-4 bg-brand-orange/10 border border-brand-orange/20 rounded-full px-4 py-2.5 self-start">
+                <Users size={16} color="#FF9500" />
+                <Text className="text-brand-orange text-sm font-semibold ml-2">Join 10,000+ organized homes</Text>
+                <Sparkles size={16} color="#FF9500" className="ml-1" />
+              </View>
             </View>
 
             <View className="space-y-4">
@@ -112,10 +128,10 @@ export default function SignupScreen() {
 
               {error && (
                 <View className={`rounded-xl p-3 mt-4 border ${
-                  error.includes('Check your email') ? 'bg-amber-500/10 border-amber-500/50' : 'bg-red-500/10 border-red-500/50'
+                  error.includes('Check your email') ? 'bg-brand-orange/10 border-brand-orange/50' : 'bg-red-500/10 border-red-500/50'
                 }`}>
                   <Text className={`text-sm text-center ${
-                    error.includes('Check your email') ? 'text-amber-500' : 'text-red-500'
+                    error.includes('Check your email') ? 'text-brand-orange' : 'text-red-500'
                   }`}>{error}</Text>
                 </View>
               )}
@@ -123,8 +139,8 @@ export default function SignupScreen() {
               <Pressable
                 onPress={handleSignup}
                 disabled={loading || !email || !password || !confirmPassword}
-                className={`mt-8 py-4 rounded-2xl flex-row items-center justify-center ${
-                  loading || !email || !password || !confirmPassword ? 'bg-zinc-800' : 'bg-amber-500'
+                className={`mt-6 py-4 rounded-2xl flex-row items-center justify-center ${
+                  loading || !email || !password || !confirmPassword ? 'bg-zinc-800' : 'bg-brand-orange'
                 }`}
               >
                 {loading ? (
@@ -136,13 +152,21 @@ export default function SignupScreen() {
                   </>
                 )}
               </Pressable>
+
+              {/* Continue as Guest Button */}
+              <Pressable
+                onPress={handleGuestMode}
+                className="mt-3 py-4 rounded-2xl flex-row items-center justify-center bg-zinc-900/50 border border-zinc-800"
+              >
+                <Text className="text-zinc-400 font-semibold text-base">Continue as Guest</Text>
+              </Pressable>
             </View>
 
-            <View className="mt-12 flex-row justify-center">
+            <View className="mt-8 flex-row justify-center">
               <Text className="text-zinc-500">Already have an account? </Text>
               <Link href="/login" asChild>
                 <Pressable>
-                  <Text className="text-amber-500 font-bold">Sign In</Text>
+                  <Text className="text-brand-orange font-bold">Sign In</Text>
                 </Pressable>
               </Link>
             </View>

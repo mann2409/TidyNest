@@ -1,10 +1,17 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { View, Text, TextInput, Pressable, ScrollView, FlatList, RefreshControl, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Search, Plus, Package, Box, MapPin, LayoutGrid, List as ListIcon, ChevronDown, ChevronUp, Filter, ArrowUpDown, Sparkles, Camera as CameraIcon } from 'lucide-react-native';
+import { Search, Plus, Package, Box, MapPin, LayoutGrid, List as ListIcon, ChevronDown, ChevronUp, Filter, ArrowUpDown, Sparkles, Camera as CameraIcon, Download, Printer, Tag, Share2 } from 'lucide-react-native';
 import useStorageStore from '@/lib/state/storage-store';
 import { ALL_CATEGORIES as DEFAULT_CATEGORIES } from '@/lib/category-mapping';
+import { useAuthStore } from '@/lib/state/auth-store';
+import { useOnboardingStore } from '@/lib/state/onboarding-store';
+import { useProgressiveTipsStore } from '@/lib/state/tips-store';
+import TipCard from '@/components/TipCard';
+import FirstBoxTutorial from '@/components/FirstBoxTutorial';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 
 type SearchFilter = 'All' | 'Items' | 'Boxes' | 'Tags';
 type SortOption = 'Smart' | 'Most Items' | 'Empty' | 'Alphabetical';
@@ -38,8 +45,103 @@ export default function HomeScreen() {
   const customCategories = useStorageStore((s) => s.customCategories);
   const search = useStorageStore((s) => s.search);
   const fetchData = useStorageStore((s) => s.fetchData);
+  const remoteConfig = useStorageStore((s) => s.remoteConfig);
+
+  const userId = useAuthStore((s) => s.user?.id ?? null);
+  const isGuest = useAuthStore((s) => s.isGuest);
+  const userKey = userId || (isGuest ? 'guest' : null);
+
+  const completedOnboarding = useOnboardingStore((s) => s.completedByUserId);
+  const seenFirstBoxTutorial = useOnboardingStore((s) => s.seenFirstBoxTutorial);
+  const markFirstBoxTutorialSeen = useOnboardingStore((s) => s.markFirstBoxTutorialSeen);
+
+  const { 
+    shouldShowTip, 
+    dismissTip, 
+    markTipShown, 
+    markSearched,
+    milestones 
+  } = useProgressiveTipsStore();
 
   const ALL_CATEGORIES = Array.from(new Set([...DEFAULT_CATEGORIES, ...customCategories]));
+
+  // Show first box tutorial if:
+  // 1. User has completed onboarding
+  // 2. User has no boxes yet
+  // 3. User hasn't seen the tutorial before
+  const hasCompletedOnboarding = userKey ? !!completedOnboarding[userKey] : false;
+  const showFirstBoxTutorial = userKey && hasCompletedOnboarding && containers.length === 0 && !seenFirstBoxTutorial[userKey];
+
+  const handleDismissTutorial = () => {
+    if (userKey) {
+      markFirstBoxTutorialSeen(userKey);
+    }
+  };
+
+  // Track when user searches
+  useEffect(() => {
+    if (searchQuery.trim() && userKey) {
+      markSearched(userKey);
+    }
+  }, [searchQuery, userKey]);
+
+  // Check which tips to show
+  const hasSearchedBefore = userKey ? milestones[userKey]?.hasSearched : false;
+  const showExportTip = userKey ? shouldShowTip(userKey, 'export_data_after_2_boxes', containers.length, items.length, !!hasSearchedBefore) : false;
+  const showPrinterTip = userKey ? shouldShowTip(userKey, 'label_printer_after_5_boxes', containers.length, items.length, !!hasSearchedBefore) : false;
+  const showTagsTip = userKey ? shouldShowTip(userKey, 'add_tags_after_first_search', containers.length, items.length, !!hasSearchedBefore) : false;
+  const showShareTip = userKey ? shouldShowTip(userKey, 'share_app_after_10_items', containers.length, items.length, !!hasSearchedBefore) : false;
+
+  // Debug logging
+  useEffect(() => {
+    if (userKey && containers.length >= 2) {
+      console.log('📦 Debug Tips:', {
+        userKey,
+        containerCount: containers.length,
+        itemCount: items.length,
+        showExportTip,
+        milestones: milestones[userKey],
+      });
+    }
+  }, [containers.length, items.length, userKey, showExportTip]);
+
+  const handleExportData = async () => {
+    try {
+      const exportData = {
+        exportDate: new Date().toISOString(),
+        version: '1.0',
+        data: { locations, containers, items, customCategories },
+        stats: {
+          totalLocations: locations.length,
+          totalContainers: containers.length,
+          totalItems: items.length,
+        },
+      };
+
+      const jsonString = JSON.stringify(exportData, null, 2);
+      const fileName = `tidynest-backup-${new Date().toISOString().split('T')[0]}.json`;
+      const filePath = `${FileSystem.documentDirectory}${fileName}`;
+
+      await FileSystem.writeAsStringAsync(filePath, jsonString, {
+        encoding: FileSystem.EncodingType.UTF8,
+      });
+
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(filePath, {
+          mimeType: 'application/json',
+          dialogTitle: 'Export Storage Data',
+          UTI: 'public.json',
+        });
+      }
+      
+      if (userKey) {
+        dismissTip(userKey, 'export_data_after_2_boxes');
+      }
+    } catch (error) {
+      console.error('Export error:', error);
+    }
+  };
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -199,8 +301,8 @@ export default function HomeScreen() {
               onPress={() => router.push(`/container/${container?.id}`)}
             >
               <View className="flex-row items-start">
-                <View className="w-10 h-10 bg-amber-500/20 rounded-xl items-center justify-center mr-3">
-                  <Package size={20} color="#f59e0b" />
+                <View className="w-10 h-10 bg-brand-orange/20 rounded-xl items-center justify-center mr-3">
+                  <Package size={20} color="#FF9500" />
                 </View>
                 <View className="flex-1">
                   <Text className="text-white font-medium text-base">{item.name}</Text>
@@ -214,8 +316,8 @@ export default function HomeScreen() {
                     </View>
                   )}
                   <View className="flex-row items-center mt-2 gap-2">
-                    <View className="bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                      <Text className="text-amber-500 text-[10px] font-bold">{container?.code}</Text>
+                    <View className="bg-brand-orange/10 px-2 py-0.5 rounded border border-brand-orange/20">
+                      <Text className="text-brand-orange text-[10px] font-bold">{container?.code}</Text>
                     </View>
                     {location && (
                       <Text className="text-zinc-500 text-[10px] font-medium uppercase tracking-tighter">{location.name}</Text>
@@ -248,10 +350,10 @@ export default function HomeScreen() {
             >
               <View className="flex-row items-center">
                 <View className="w-10 h-10 bg-zinc-800 rounded-xl items-center justify-center mr-3 border border-zinc-700">
-                  <Box size={20} color="#f59e0b" />
+                  <Box size={20} color="#FF9500" />
                 </View>
                 <View className="flex-1">
-                  <Text className="text-amber-500 font-bold text-base">{container.code}</Text>
+                  <Text className="text-brand-orange font-bold text-base">{container.code}</Text>
                   {container.description && (
                     <Text className="text-zinc-400 text-sm mt-0.5" numberOfLines={1}>
                       {container.description}
@@ -289,7 +391,7 @@ export default function HomeScreen() {
           >
             <View className="flex-row items-center">
               <View className="w-10 h-10 bg-zinc-800 rounded-xl items-center justify-center mr-3 border border-zinc-700">
-                <MapPin size={20} color="#f59e0b" />
+                <MapPin size={20} color="#FF9500" />
               </View>
               <View className="flex-1">
                 <Text className="text-white font-bold text-base">{loc.name}</Text>
@@ -306,6 +408,11 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-zinc-950" edges={['top']}>
+      {/* First Box Tutorial Overlay */}
+      {showFirstBoxTutorial && (
+        <FirstBoxTutorial onDismiss={handleDismissTutorial} />
+      )}
+      
       <View className="flex-1 px-4">
         {/* Header */}
         <View className="flex-row items-center justify-between py-4">
@@ -325,10 +432,10 @@ export default function HomeScreen() {
             </View>
             <View className="flex-row items-center mt-2 ml-1">
               <Pressable onPress={() => setViewMode('Boxes')} className="mr-3">
-                <Text className={`text-sm ${viewMode === 'Boxes' ? 'text-amber-500 font-bold' : 'text-zinc-500'}`}>Boxes First</Text>
+                <Text className={`text-sm ${viewMode === 'Boxes' ? 'text-brand-orange font-bold' : 'text-zinc-500'}`}>Boxes First</Text>
               </Pressable>
               <Pressable onPress={() => setViewMode('Items')}>
-                <Text className={`text-sm ${viewMode === 'Items' ? 'text-amber-500 font-bold' : 'text-zinc-500'}`}>Items First</Text>
+                <Text className={`text-sm ${viewMode === 'Items' ? 'text-brand-orange font-bold' : 'text-zinc-500'}`}>Items First</Text>
               </Pressable>
             </View>
           </View>
@@ -337,7 +444,7 @@ export default function HomeScreen() {
               onPress={() => setShowFilters(!showFilters)}
               className={`w-10 h-10 rounded-full items-center justify-center border ${
                 showFilters || sortBy !== 'Smart' || filterCategory 
-                  ? 'bg-amber-500 border-amber-500' 
+                  ? 'bg-brand-orange border-brand-orange' 
                   : 'bg-zinc-900 border-zinc-800'
               }`}
             >
@@ -347,7 +454,7 @@ export default function HomeScreen() {
               onPress={() => setIsCompact(!isCompact)}
               className="w-10 h-10 bg-zinc-900 rounded-full items-center justify-center border border-zinc-800"
             >
-              {isCompact ? <LayoutGrid size={20} color="#f59e0b" /> : <ListIcon size={20} color="#94a3b8" />}
+              {isCompact ? <LayoutGrid size={20} color="#FF9500" /> : <ListIcon size={20} color="#94a3b8" />}
             </Pressable>
           </View>
         </View>
@@ -361,7 +468,7 @@ export default function HomeScreen() {
                 setSortBy('Smart');
                 setFilterCategory(null);
               }}>
-                <Text className="text-amber-500 text-xs font-medium">Reset All</Text>
+                <Text className="text-brand-orange text-xs font-medium">Reset All</Text>
               </Pressable>
             </View>
 
@@ -372,7 +479,7 @@ export default function HomeScreen() {
                   key={opt}
                   onPress={() => setSortBy(opt)}
                   className={`px-3 py-1.5 rounded-lg border ${
-                    sortBy === opt ? 'bg-amber-500 border-amber-500' : 'bg-zinc-800 border-zinc-700'
+                    sortBy === opt ? 'bg-brand-orange border-brand-orange' : 'bg-zinc-800 border-zinc-700'
                   }`}
                 >
                   <Text className={`text-xs ${sortBy === opt ? 'text-black font-bold' : 'text-zinc-400'}`}>
@@ -387,7 +494,7 @@ export default function HomeScreen() {
               <Pressable
                 onPress={() => setFilterCategory(null)}
                 className={`px-3 py-1.5 rounded-lg border mr-2 ${
-                  filterCategory === null ? 'bg-amber-500 border-amber-500' : 'bg-zinc-800 border-zinc-700'
+                  filterCategory === null ? 'bg-brand-orange border-brand-orange' : 'bg-zinc-800 border-zinc-700'
                 }`}
               >
                 <Text className={`text-xs ${filterCategory === null ? 'text-black font-bold' : 'text-zinc-400'}`}>
@@ -399,7 +506,7 @@ export default function HomeScreen() {
                   key={cat}
                   onPress={() => setFilterCategory(cat)}
                   className={`px-3 py-1.5 rounded-lg border mr-2 ${
-                    filterCategory === cat ? 'bg-amber-500 border-amber-500' : 'bg-zinc-800 border-zinc-700'
+                    filterCategory === cat ? 'bg-brand-orange border-brand-orange' : 'bg-zinc-800 border-zinc-700'
                   }`}
                 >
                   <Text className={`text-xs ${filterCategory === cat ? 'text-black font-bold' : 'text-zinc-400'}`}>
@@ -442,7 +549,7 @@ export default function HomeScreen() {
                 }}
                 className={`flex-row items-center px-4 py-2 rounded-2xl mr-2 border ${
                   filterCategory === item.id 
-                    ? 'bg-amber-500 border-amber-500' 
+                    ? 'bg-brand-orange border-brand-orange' 
                     : 'bg-zinc-900 border-zinc-800'
                 }`}
               >
@@ -463,7 +570,7 @@ export default function HomeScreen() {
               onPress={() => setActiveFilter(filter)}
               className={`px-4 py-1.5 rounded-full border ${
                 activeFilter === filter 
-                  ? 'bg-amber-500 border-amber-500' 
+                  ? 'bg-brand-orange border-brand-orange' 
                   : 'bg-transparent border-zinc-800'
               }`}
             >
@@ -477,7 +584,7 @@ export default function HomeScreen() {
         {/* Quick Actions */}
         <View className="flex-row gap-3 mb-6">
           <Pressable
-            className="flex-1 bg-amber-500 rounded-2xl p-4 active:opacity-80 shadow-sm"
+            className="flex-1 bg-brand-orange rounded-2xl p-4 active:opacity-80 shadow-sm"
             onPress={() => router.push('/add-container')}
           >
             <View className="flex-row items-center justify-center gap-2">
@@ -496,13 +603,70 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
+        {/* Progressive Tips */}
+        {showExportTip && userKey && (
+          <TipCard
+            icon={Download}
+            title="You can export all your data as JSON for backup"
+            description="Keep your storage organized data safe! Export everything now and store it securely."
+            actionText="Export Now"
+            onAction={handleExportData}
+            onDismiss={() => {
+              dismissTip(userKey, 'export_data_after_2_boxes');
+              markTipShown(userKey, 'export_data_after_2_boxes');
+            }}
+          />
+        )}
+
+        {showPrinterTip && userKey && (
+          <TipCard
+            icon={Printer}
+            title="Pro tip: Use our label printer recommendation to mark your physical boxes!"
+            description="Print waterproof labels with box codes to quickly identify your storage boxes."
+            actionText="View Recommended Printers"
+            onAction={() => {
+              router.push('/settings');
+              dismissTip(userKey, 'label_printer_after_5_boxes');
+              markTipShown(userKey, 'label_printer_after_5_boxes');
+            }}
+            onDismiss={() => {
+              dismissTip(userKey, 'label_printer_after_5_boxes');
+              markTipShown(userKey, 'label_printer_after_5_boxes');
+            }}
+          />
+        )}
+
+        {showTagsTip && userKey && (
+          <TipCard
+            icon={Tag}
+            title="Add tags to make searching even better"
+            description="Add descriptive tags to your items (e.g., 'winter', 'camping') to find them faster!"
+            onDismiss={() => {
+              dismissTip(userKey, 'add_tags_after_first_search');
+              markTipShown(userKey, 'add_tags_after_first_search');
+            }}
+          />
+        )}
+
+        {showShareTip && userKey && (
+          <TipCard
+            icon={Share2}
+            title="You're getting organized! Share TidyNest with friends moving house"
+            description="Help friends and family stay organized during their next move with TidyNest."
+            onDismiss={() => {
+              dismissTip(userKey, 'share_app_after_10_items');
+              markTipShown(userKey, 'share_app_after_10_items');
+            }}
+          />
+        )}
+
         {/* Search Results */}
         {hasResults && (
           <ScrollView 
             className="flex-1" 
             showsVerticalScrollIndicator={false}
             refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#f59e0b" />
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FF9500" />
             }
           >
             {(viewMode === 'Items' || activeFilter === 'Items' || activeFilter === 'Tags') ? (
@@ -538,7 +702,7 @@ export default function HomeScreen() {
               <ScrollView
                 contentContainerStyle={{ flexGrow: 1 }}
                 refreshControl={
-                  <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#f59e0b" />
+                  <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FF9500" />
                 }
               >
                 <View className="flex-1 items-center justify-center">
@@ -554,7 +718,7 @@ export default function HomeScreen() {
                       : 'Add items to your boxes to keep track of everything you own.'}
                   </Text>
                   <Pressable
-                    className="bg-amber-500 rounded-full px-10 py-4 mt-8 active:opacity-80 shadow-lg shadow-amber-500/20"
+                    className="bg-brand-orange rounded-full px-10 py-4 mt-8 active:opacity-80 shadow-lg shadow-brand-orange/20"
                     onPress={() => router.push(viewMode === 'Boxes' ? '/add-container' : '/all-items')}
                   >
                     <View className="flex-row items-center gap-2">
@@ -576,7 +740,7 @@ export default function HomeScreen() {
                   keyExtractor={(item) => item.id}
                   showsVerticalScrollIndicator={false}
                   refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#f59e0b" />
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FF9500" />
                   }
                   renderItem={({ item }: { item: any }) => {
                     if (viewMode === 'Items') {
@@ -593,8 +757,8 @@ export default function HomeScreen() {
                             <View className="flex-row items-center justify-between">
                               <Text className="text-white font-medium text-base">{(item as any).name}</Text>
                               {(item as any).label && (
-                                <View className="bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
-                                  <Text className="text-amber-500 text-[10px] font-bold uppercase">{(item as any).label}</Text>
+                                <View className="bg-brand-orange/10 px-2 py-0.5 rounded-full border border-brand-orange/20">
+                                  <Text className="text-brand-orange text-[10px] font-bold uppercase">{(item as any).label}</Text>
                                 </View>
                               )}
                             </View>
@@ -619,8 +783,8 @@ export default function HomeScreen() {
                           onPress={() => setExpandedId(container.id)}
                         >
                           <View className="flex-row items-center">
-                            <Box size={18} color={itemCount === 0 ? '#71717a' : '#f59e0b'} className="mr-3" />
-                            <Text className={`font-bold text-base ${itemCount === 0 ? 'text-zinc-500' : 'text-amber-500'}`}>{container.code}</Text>
+                            <Box size={18} color={itemCount === 0 ? '#71717a' : '#FF9500'} className="mr-3" />
+                            <Text className={`font-bold text-base ${itemCount === 0 ? 'text-zinc-500' : 'text-brand-orange'}`}>{container.code}</Text>
                           </View>
                           <View className={itemCount === 0 ? 'bg-zinc-800/50 px-2 py-1 rounded-lg border border-zinc-700' : 'bg-zinc-800 px-2 py-1 rounded-lg'}>
                             <Text className={itemCount === 0 ? 'text-zinc-600 text-xs font-bold uppercase tracking-tighter' : 'text-zinc-400 text-xs font-medium'}>
@@ -633,7 +797,7 @@ export default function HomeScreen() {
 
                     return (
                       <Pressable
-                        className={`bg-zinc-900 rounded-xl p-4 mb-2 active:opacity-80 ${isExpanded ? 'border border-amber-500/30' : ''} ${itemCount === 0 ? 'opacity-60' : ''}`}
+                        className={`bg-zinc-900 rounded-xl p-4 mb-2 active:opacity-80 ${isExpanded ? 'border border-brand-orange/30' : ''} ${itemCount === 0 ? 'opacity-60' : ''}`}
                         onPress={() => isExpanded ? router.push(`/container/${container.id}`) : router.push(`/container/${container.id}`)}
                       >
                         <View className="flex-row items-center">
@@ -642,7 +806,7 @@ export default function HomeScreen() {
                           </View>
                           <View className="flex-1">
                             <View className="flex-row items-center justify-between">
-                              <Text className={`font-bold text-base ${itemCount === 0 ? 'text-[#94a3b8]/40' : 'text-amber-500'}`}>{container.code}</Text>
+                              <Text className={`font-bold text-base ${itemCount === 0 ? 'text-[#94a3b8]/40' : 'text-brand-orange'}`}>{container.code}</Text>
                               <View className="flex-row items-center gap-2">
                                 <View className={`px-2 py-0.5 rounded-full border ${
                                   itemCount === 0 ? 'bg-zinc-900 border-zinc-800' : (container.label === 'Contains expiring items' ? 'bg-red-500/10 border-red-500/20' : 'bg-[#94a3b8]/10 border-[#94a3b8]/20')
@@ -674,7 +838,7 @@ export default function HomeScreen() {
                           <View className="mt-4 pt-4 border-t border-zinc-800 flex-row justify-end">
                             <Pressable 
                               onPress={() => router.push(`/container/${container.id}`)}
-                              className="bg-amber-500 px-4 py-2 rounded-full"
+                              className="bg-brand-orange px-4 py-2 rounded-full"
                             >
                               <Text className="text-black font-bold">Open Details</Text>
                             </Pressable>

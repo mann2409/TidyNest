@@ -9,7 +9,9 @@ interface AuthStore {
   session: Session | null;
   user: User | null;
   initialized: boolean;
+  isGuest: boolean;
   setSession: (session: Session | null) => void;
+  setGuestMode: (isGuest: boolean) => void;
   signOut: () => Promise<void>;
   deleteAccount: () => Promise<{ error: string | null }>;
 }
@@ -20,13 +22,17 @@ export const useAuthStore = create<AuthStore>()(
       session: null,
       user: null,
       initialized: false,
+      isGuest: false,
       setSession: (session) => {
-        set({ session, user: session?.user ?? null, initialized: true });
+        set({ session, user: session?.user ?? null, initialized: true, isGuest: false });
+      },
+      setGuestMode: (isGuest) => {
+        set({ isGuest, initialized: true });
       },
       signOut: async () => {
         await supabase.auth.signOut();
         useStorageStore.getState().clearData();
-        set({ session: null, user: null });
+        set({ session: null, user: null, isGuest: false });
       },
       deleteAccount: async () => {
         const { session } = get();
@@ -43,7 +49,7 @@ export const useAuthStore = create<AuthStore>()(
           // If successful, sign out locally
           await supabase.auth.signOut();
           useStorageStore.getState().clearData();
-          set({ session: null, user: null });
+          set({ session: null, user: null, isGuest: false });
           
           return { error: null };
         } catch (err: any) {

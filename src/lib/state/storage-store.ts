@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "./auth-store";
+import { encryptString, decryptString, encryptTags, decryptTags } from "@/lib/encryption";
 import 'react-native-get-random-values';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -196,6 +197,9 @@ const useStorageStore = create<StorageStore>()(
             return;
           }
 
+          // Encrypt sensitive fields
+          const encryptedDescription = await encryptString(container.description, userId);
+
           const { error } = await supabase.from('containers').upsert({
             id,
             user_id: userId,
@@ -203,7 +207,7 @@ const useStorageStore = create<StorageStore>()(
             code: container.code,
             location_id: container.locationId,
             category: container.category,
-            description: container.description,
+            description: encryptedDescription, // Encrypted
             photo_url: container.photoUrl,
             updated_at: now,
           });
@@ -229,18 +233,28 @@ const useStorageStore = create<StorageStore>()(
           ),
         }));
 
-        // Update Supabase
-        supabase.from('containers').update({
-          name: updates.code,
-          code: updates.code,
-          location_id: updates.locationId,
-          category: updates.category,
-          description: updates.description,
-          photo_url: updates.photoUrl,
-          updated_at: new Date().toISOString(),
-        }).eq('id', id).then(({ error }) => {
-          if (error) console.error('Supabase update error:', error);
-        });
+        // Update Supabase with encryption
+        void (async () => {
+          const { data: u } = await supabase.auth.getUser();
+          const userId = u.user?.id;
+          if (!userId) return;
+
+          const encryptedDescription = updates.description 
+            ? await encryptString(updates.description, userId)
+            : undefined;
+
+          await supabase.from('containers').update({
+            name: updates.code,
+            code: updates.code,
+            location_id: updates.locationId,
+            category: updates.category,
+            description: encryptedDescription,
+            photo_url: updates.photoUrl,
+            updated_at: new Date().toISOString(),
+          }).eq('id', id).then(({ error }) => {
+            if (error) console.error('Supabase update error:', error);
+          });
+        })();
       },
 
       deleteContainer: (id) => {
@@ -322,14 +336,19 @@ const useStorageStore = create<StorageStore>()(
             return;
           }
 
+          // Encrypt sensitive fields
+          const encryptedName = await encryptString(item.name, userId);
+          const encryptedNotes = await encryptString(item.notes, userId);
+          const encryptedTags = await encryptTags(item.tags, userId);
+
           const { error } = await supabase.from('items').upsert({
             id,
             user_id: userId,
             container_id: item.containerId,
-            name: item.name,
-            tags: item.tags,
+            name: encryptedName, // Encrypted
+            tags: encryptedTags, // Encrypted
             quantity: item.quantity,
-            notes: item.notes,
+            notes: encryptedNotes, // Encrypted
             expiry_date: item.expiryDate,
             updated_at: now,
           });
@@ -355,17 +374,33 @@ const useStorageStore = create<StorageStore>()(
           ),
         }));
 
-        // Update Supabase
-        supabase.from('items').update({
-          name: updates.name,
-          tags: updates.tags,
-          quantity: updates.quantity,
-          notes: updates.notes,
-          expiry_date: updates.expiryDate,
-          updated_at: new Date().toISOString(),
-        }).eq('id', id).then(({ error }) => {
-          if (error) console.error('Supabase update error:', error);
-        });
+        // Update Supabase with encryption
+        void (async () => {
+          const { data: u } = await supabase.auth.getUser();
+          const userId = u.user?.id;
+          if (!userId) return;
+
+          const encryptedName = updates.name 
+            ? await encryptString(updates.name, userId)
+            : undefined;
+          const encryptedNotes = updates.notes 
+            ? await encryptString(updates.notes, userId)
+            : undefined;
+          const encryptedTags = updates.tags
+            ? await encryptTags(updates.tags, userId)
+            : undefined;
+
+          await supabase.from('items').update({
+            name: encryptedName,
+            tags: encryptedTags,
+            quantity: updates.quantity,
+            notes: encryptedNotes,
+            expiry_date: updates.expiryDate,
+            updated_at: new Date().toISOString(),
+          }).eq('id', id).then(({ error }) => {
+            if (error) console.error('Supabase update error:', error);
+          });
+        })();
       },
 
       deleteItem: (id) => {
@@ -489,30 +524,40 @@ const useStorageStore = create<StorageStore>()(
           console.log(`Successfully fetched ${containers.length} containers from Supabase`);
         }
 
-        set({
-          containers: (containers || []).map(c => ({
+        // Decrypt containers
+        const decryptedContainers = await Promise.all(
+          (containers || []).map(async (c) => ({
             id: c.id,
             code: c.code,
             locationId: c.location_id,
             category: c.category,
-            description: c.description,
+            description: await decryptString(c.description, user.id),
             photoUrl: c.photo_url,
             createdAt: c.created_at,
             updatedAt: c.updated_at,
             lastViewedAt: c.last_viewed_at,
             viewCount: c.view_count || 0,
-          })),
-          items: (items || []).map(i => ({
+          }))
+        );
+
+        // Decrypt items
+        const decryptedItems = await Promise.all(
+          (items || []).map(async (i) => ({
             id: i.id,
             containerId: i.container_id,
-            name: i.name,
-            tags: i.tags || [],
+            name: await decryptString(i.name, user.id) || '',
+            tags: await decryptTags(i.tags, user.id),
             quantity: i.quantity,
-            notes: i.notes,
+            notes: await decryptString(i.notes, user.id),
             expiryDate: i.expiry_date,
             createdAt: i.created_at,
             updatedAt: i.updated_at,
           }))
+        );
+
+        set({
+          containers: decryptedContainers,
+          items: decryptedItems,
         });
 
         // Fetch remote config

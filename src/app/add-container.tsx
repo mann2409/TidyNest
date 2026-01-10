@@ -1,16 +1,29 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, TextInput, Pressable, ScrollView, Image, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { X, Camera, Image as ImageIcon, Sparkles, ChevronDown, Check, Package, Plus } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import useStorageStore, { Location } from '@/lib/state/storage-store';
+import Animated, { 
+  FadeIn, 
+  FadeOut,
+  useSharedValue, 
+  useAnimatedStyle, 
+  withSpring,
+  withSequence,
+  withDelay,
+  runOnJS,
+} from 'react-native-reanimated';
 
 export default function AddContainerScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ onboarding?: string }>();
+  const isOnboarding = params.onboarding === '1';
   const locations = useStorageStore((s) => s.locations);
   const categories = useStorageStore((s) => s.categories);
+  const containers = useStorageStore((s) => s.containers);
   const addContainer = useStorageStore((s) => s.addContainer);
   const getNextContainerCode = useStorageStore((s) => s.getNextContainerCode);
   const addItem = useStorageStore((s) => s.addItem);
@@ -27,6 +40,60 @@ export default function AddContainerScreen() {
   const [newItemName, setNewItemName] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+  const [showCelebration, setShowCelebration] = useState(false);
+
+  // Confetti animation values
+  const confetti1Scale = useSharedValue(0);
+  const confetti2Scale = useSharedValue(0);
+  const confetti3Scale = useSharedValue(0);
+  const celebrationOpacity = useSharedValue(0);
+
+  const confetti1Style = useAnimatedStyle(() => ({
+    transform: [{ scale: confetti1Scale.value }, { rotate: '15deg' }],
+    opacity: celebrationOpacity.value,
+  }));
+
+  const confetti2Style = useAnimatedStyle(() => ({
+    transform: [{ scale: confetti2Scale.value }, { rotate: '-20deg' }],
+    opacity: celebrationOpacity.value,
+  }));
+
+  const confetti3Style = useAnimatedStyle(() => ({
+    transform: [{ scale: confetti3Scale.value }, { rotate: '10deg' }],
+    opacity: celebrationOpacity.value,
+  }));
+
+  const triggerCelebration = () => {
+    setShowCelebration(true);
+    
+    // Animate confetti
+    celebrationOpacity.value = withSpring(1);
+    confetti1Scale.value = withSequence(
+      withSpring(1.2),
+      withSpring(1),
+    );
+    confetti2Scale.value = withDelay(100, withSequence(
+      withSpring(1.3),
+      withSpring(1),
+    ));
+    confetti3Scale.value = withDelay(200, withSequence(
+      withSpring(1.1),
+      withSpring(1),
+    ));
+
+    // Hide after 3 seconds and navigate
+    setTimeout(() => {
+      celebrationOpacity.value = withSpring(0);
+      setTimeout(() => {
+        setShowCelebration(false);
+        if (isOnboarding) {
+          router.replace('/(tabs)');
+        } else {
+          router.back();
+        }
+      }, 500);
+    }, 2500);
+  };
 
   const handleManualAddItem = () => {
     if (!newItemName.trim()) return;
@@ -175,6 +242,8 @@ export default function AddContainerScreen() {
   const handleSave = () => {
     if (!selectedLocation || !category || !suggestedCode) return;
 
+    const isFirstBox = containers.length === 0;
+
     const newContainer = addContainer({
       code: suggestedCode,
       locationId: selectedLocation.id,
@@ -194,7 +263,16 @@ export default function AddContainerScreen() {
       });
     }
 
-    router.back();
+    // Show celebration for first box only
+    if (isFirstBox) {
+      triggerCelebration();
+    } else {
+      if (isOnboarding) {
+        router.replace('/(tabs)');
+      } else {
+        router.back();
+      }
+    }
   };
 
   const canSave = selectedLocation && category && suggestedCode;
@@ -202,22 +280,90 @@ export default function AddContainerScreen() {
   return (
     <SafeAreaView className="flex-1 bg-zinc-950">
       <View className="flex-1">
+        {/* Celebration Overlay */}
+        {showCelebration && (
+          <Animated.View 
+            entering={FadeIn}
+            exiting={FadeOut}
+            className="absolute inset-0 z-50 bg-black/80 items-center justify-center"
+          >
+            <View className="items-center">
+              {/* Confetti emojis */}
+              <View className="absolute inset-0 items-center justify-center">
+                <Animated.Text style={[confetti1Style, { position: 'absolute', top: '20%', left: '20%', fontSize: 60 }]}>
+                  🎉
+                </Animated.Text>
+                <Animated.Text style={[confetti2Style, { position: 'absolute', top: '25%', right: '15%', fontSize: 50 }]}>
+                  ✨
+                </Animated.Text>
+                <Animated.Text style={[confetti3Style, { position: 'absolute', bottom: '30%', left: '15%', fontSize: 55 }]}>
+                  🎊
+                </Animated.Text>
+                <Animated.Text style={[confetti1Style, { position: 'absolute', bottom: '25%', right: '20%', fontSize: 45 }]}>
+                  🎈
+                </Animated.Text>
+              </View>
+
+              {/* Main message */}
+              <View className="items-center z-10">
+                <View className="w-24 h-24 bg-brand-orange rounded-full items-center justify-center mb-6 shadow-2xl shadow-brand-orange/50">
+                  <Text className="text-6xl">📦</Text>
+                </View>
+                <Text className="text-white text-4xl font-black text-center mb-3">
+                  Amazing!
+                </Text>
+                <Text className="text-brand-orange text-2xl font-bold text-center mb-2">
+                  First Box Created! 🎉
+                </Text>
+                <Text className="text-zinc-400 text-center text-lg px-8">
+                  You can now search for items anytime!
+                </Text>
+              </View>
+            </View>
+          </Animated.View>
+        )}
+
         {/* Header */}
         <View className="flex-row items-center justify-between px-4 py-3 border-b border-zinc-800">
-          <Pressable onPress={() => router.back()} className="p-2 -ml-2">
+          <Pressable
+            onPress={() => {
+              if (isOnboarding) {
+                router.replace('/(tabs)');
+              } else {
+                router.back();
+              }
+            }}
+            className="p-2 -ml-2"
+          >
             <X size={24} color="#fff" />
           </Pressable>
-          <Text className="text-white font-semibold text-lg">Scan & Add Items</Text>
+          <Text className="text-white font-semibold text-lg">
+            {isOnboarding ? 'Scan your first box' : 'Scan & Add Items'}
+          </Text>
           <Pressable
             onPress={handleSave}
             disabled={!canSave}
-            className={`px-4 py-2 rounded-full ${canSave ? 'bg-amber-500' : 'bg-[#94a3b8]/10 border border-[#94a3b8]/10'}`}
+            className={`px-4 py-2 rounded-full ${canSave ? 'bg-brand-orange' : 'bg-[#94a3b8]/10 border border-[#94a3b8]/10'}`}
           >
             <Text className={canSave ? 'text-black font-semibold' : 'text-[#94a3b8]/40 font-medium'}>Save</Text>
           </Pressable>
         </View>
 
         <ScrollView className="flex-1 px-4" showsVerticalScrollIndicator={false}>
+          {isOnboarding && (
+            <View className="mt-5 bg-brand-orange/10 border border-brand-orange/10 rounded-2xl p-4">
+              <Text className="text-brand-orange font-bold text-xs uppercase tracking-widest">
+                Quick win
+              </Text>
+              <Text className="text-white mt-1 font-semibold">
+                Scan 1 box and tap Save.
+              </Text>
+              <Text className="text-zinc-400 text-sm mt-1">
+                After this, you can search items anytime from the app.
+              </Text>
+            </View>
+          )}
+
           {/* Step 1: Select Location */}
           <View className="mt-6">
             <Text className="text-zinc-400 text-sm mb-2 uppercase tracking-widest font-bold">1. Location</Text>
@@ -240,12 +386,12 @@ export default function AddContainerScreen() {
                     onPress={() => handleLocationSelect(loc)}
                   >
                     <View className="flex-row items-center">
-                      <View className="w-8 h-8 bg-amber-500/20 rounded-lg items-center justify-center mr-3">
-                        <Text className="text-amber-500 font-bold text-sm">{loc.code}</Text>
+                      <View className="w-8 h-8 bg-brand-orange/20 rounded-lg items-center justify-center mr-3">
+                        <Text className="text-brand-orange font-bold text-sm">{loc.code}</Text>
                       </View>
                       <Text className="text-white">{loc.name}</Text>
                     </View>
-                    {selectedLocation?.id === loc.id && <Check size={20} color="#f59e0b" />}
+                    {selectedLocation?.id === loc.id && <Check size={20} color="#FF9500" />}
                   </Pressable>
                 ))}
               </View>
@@ -304,13 +450,13 @@ export default function AddContainerScreen() {
             {keywords.length > 0 && (
               <View className="mt-4 bg-zinc-900 rounded-xl p-4 border border-zinc-800">
                 <View className="flex-row items-center mb-2">
-                  <Sparkles size={16} color="#f59e0b" />
+                  <Sparkles size={16} color="#FF9500" />
                   <Text className="text-[#94a3b8] ml-2 font-bold uppercase text-[10px] tracking-wider">Search Keywords</Text>
                 </View>
                 <View className="flex-row flex-wrap gap-2">
                   {keywords.map((kw, i) => (
-                    <View key={i} className="bg-amber-500/10 px-3 py-1 rounded-full">
-                      <Text className="text-amber-500 text-xs font-medium">{kw}</Text>
+                    <View key={i} className="bg-brand-orange/10 px-3 py-1 rounded-full">
+                      <Text className="text-brand-orange text-xs font-medium">{kw}</Text>
                     </View>
                   ))}
                 </View>
@@ -319,11 +465,11 @@ export default function AddContainerScreen() {
 
             {/* AI Suggested Items */}
             {suggestedItems.length > 0 && (
-              <View className="mt-4 bg-amber-500/5 rounded-xl p-4 border border-amber-500/10">
+              <View className="mt-4 bg-brand-orange/5 rounded-xl p-4 border border-brand-orange/10">
                 <View className="flex-row items-center justify-between mb-3">
                   <View className="flex-row items-center">
-                    <Package size={16} color="#f59e0b" />
-                    <Text className="text-amber-500 ml-2 font-bold uppercase text-[10px] tracking-wider">Suggested Items to Add</Text>
+                    <Package size={16} color="#FF9500" />
+                    <Text className="text-brand-orange ml-2 font-bold uppercase text-[10px] tracking-wider">Suggested Items to Add</Text>
                   </View>
                   <Text className="text-[#94a3b8]/60 text-[10px]">{suggestedItems.length} found</Text>
                 </View>
@@ -357,9 +503,9 @@ export default function AddContainerScreen() {
                   <View className="flex-row items-center gap-2 mt-2">
                     <Pressable 
                       onPress={handleManualAddItem}
-                      className="bg-amber-500/10 w-12 h-12 rounded-lg items-center justify-center border border-amber-500/10 active:bg-amber-500/20"
+                      className="bg-brand-orange/10 w-12 h-12 rounded-lg items-center justify-center border border-brand-orange/10 active:bg-brand-orange/20"
                     >
-                      <Plus size={20} color="#f59e0b" />
+                      <Plus size={20} color="#FF9500" />
                     </Pressable>
                   </View>
                 </View>
@@ -392,7 +538,7 @@ export default function AddContainerScreen() {
                       <Text className="text-white font-medium">{cat.code}</Text>
                       <Text className="text-zinc-500 ml-2 text-xs">{cat.name}</Text>
                     </View>
-                    {category === cat.code && <Check size={20} color="#f59e0b" />}
+                    {category === cat.code && <Check size={20} color="#FF9500" />}
                   </Pressable>
                 ))}
               </ScrollView>
@@ -403,7 +549,7 @@ export default function AddContainerScreen() {
           {suggestedCode && (
             <View className="mt-6">
               <Text className="text-zinc-400 text-sm mb-2 uppercase tracking-widest font-bold">4. Auto-Suggested Box Code</Text>
-              <View className="bg-amber-500 rounded-xl p-6 items-center shadow-lg shadow-amber-500/20">
+              <View className="bg-brand-orange rounded-xl p-6 items-center shadow-lg shadow-brand-orange/20">
                 <Text className="text-black text-4xl font-black tracking-tighter">{suggestedCode}</Text>
                 <Text className="text-black/60 text-xs mt-1 font-bold">SMART GENERATED FOR {category}</Text>
               </View>

@@ -93,11 +93,36 @@ export default function CategoriesScreen() {
           }}
           className="p-2 -mr-2"
         >
-          <Plus size={24} color="#f59e0b" />
+          <Plus size={24} color="#FF9500" />
         </Pressable>
       </View>
 
       <ScrollView className="flex-1 px-4" showsVerticalScrollIndicator={false}>
+        {/* Empty State for Custom Categories */}
+        {customCategories.length === 0 && (
+          <View className="items-center justify-center px-8 py-12">
+            <View className="w-20 h-20 bg-brand-orange/10 rounded-2xl items-center justify-center mb-4 border-2 border-brand-orange/20">
+              <Tag size={40} color="#FF9500" />
+            </View>
+            <Text className="text-white text-xl font-bold text-center mb-2">
+              Create custom categories
+            </Text>
+            <Text className="text-zinc-400 text-center leading-5 mb-6">
+              Add your own categories to better organize specific items in your boxes.
+            </Text>
+            <Pressable
+              className="bg-brand-orange rounded-xl px-6 py-3 active:opacity-90 flex-row items-center"
+              onPress={() => {
+                resetForm();
+                setShowAddModal(true);
+              }}
+            >
+              <Plus size={18} color="#000" />
+              <Text className="text-black font-bold ml-2">Add Category</Text>
+            </Pressable>
+          </View>
+        )}
+
         {/* Custom Categories */}
         {customCategories.length > 0 && (
           <View className="mt-6">
@@ -107,8 +132,8 @@ export default function CategoriesScreen() {
                 key={category.id}
                 className="bg-zinc-900 rounded-xl p-4 mb-2 flex-row items-center"
               >
-                <View className="w-12 h-12 bg-amber-500/20 rounded-xl items-center justify-center mr-3">
-                  <Text className="text-amber-500 font-bold text-xs">{category.code}</Text>
+                <View className="w-12 h-12 bg-brand-orange/20 rounded-xl items-center justify-center mr-3">
+                  <Text className="text-brand-orange font-bold text-xs">{category.code}</Text>
                 </View>
                 <View className="flex-1">
                   <Text className="text-white font-medium">{category.name}</Text>
@@ -190,7 +215,7 @@ export default function CategoriesScreen() {
                 onPress={editingCategory ? handleUpdate : handleAdd}
                 disabled={!newCode.trim() || !newName.trim()}
                 className={`px-4 py-2 rounded-full ${
-                  newCode.trim() && newName.trim() ? 'bg-amber-500' : 'bg-zinc-800'
+                  newCode.trim() && newName.trim() ? 'bg-brand-orange' : 'bg-zinc-800'
                 }`}
               >
                 <Text
@@ -255,8 +280,8 @@ export default function CategoriesScreen() {
                 <View className="bg-zinc-900 rounded-xl p-4 mb-8">
                   <Text className="text-zinc-400 text-sm mb-3">Preview</Text>
                   <View className="flex-row items-center">
-                    <View className="w-12 h-12 bg-amber-500/20 rounded-xl items-center justify-center mr-3">
-                      <Text className="text-amber-500 font-bold text-xs">
+                    <View className="w-12 h-12 bg-brand-orange/20 rounded-xl items-center justify-center mr-3">
+                      <Text className="text-brand-orange font-bold text-xs">
                         {newCode.trim().substring(0, 8)}
                       </Text>
                     </View>
