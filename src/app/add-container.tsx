@@ -501,11 +501,25 @@ export default function AddContainerScreen() {
                   
                   {/* Manual Add Item */}
                   <View className="flex-row items-center gap-2 mt-2">
+                    <TextInput
+                      className="flex-1 bg-zinc-900 rounded-lg p-3 text-white border border-zinc-800"
+                      placeholder="Add more items manually..."
+                      placeholderTextColor="#3f3f46"
+                      value={newItemName}
+                      onChangeText={setNewItemName}
+                      onSubmitEditing={handleManualAddItem}
+                      returnKeyType="done"
+                    />
                     <Pressable 
                       onPress={handleManualAddItem}
-                      className="bg-brand-orange/10 w-12 h-12 rounded-lg items-center justify-center border border-brand-orange/10 active:bg-brand-orange/20"
+                      disabled={!newItemName.trim()}
+                      className={`w-12 h-12 rounded-lg items-center justify-center border ${
+                        newItemName.trim() 
+                          ? 'bg-brand-orange/20 border-brand-orange/30 active:bg-brand-orange/30' 
+                          : 'bg-zinc-900 border-zinc-800'
+                      }`}
                     >
-                      <Plus size={20} color="#FF9500" />
+                      <Plus size={20} color={newItemName.trim() ? '#FF9500' : '#3f3f46'} />
                     </Pressable>
                   </View>
                 </View>
