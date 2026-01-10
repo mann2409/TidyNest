@@ -50,7 +50,7 @@ export default function SignupScreen() {
   const handleGuestMode = () => {
     // Continue as guest - skip to main app without authentication
     setGuestMode(true);
-    router.replace('/(tabs)');
+    router.replace('/welcome-survey');
   };
 
   return (

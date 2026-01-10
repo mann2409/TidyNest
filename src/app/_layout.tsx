@@ -67,7 +67,7 @@ function RootLayoutNav({ colorScheme }: { colorScheme: 'light' | 'dark' | null |
       }
       
       // Second: check if onboarding is completed
-      if (hasCompletedSurvey && !hasCompletedOnboarding && !inOnboarding) {
+      if (hasCompletedSurvey && !hasCompletedOnboarding && !inOnboardingFlow) {
         router.replace('/onboarding');
         return;
       }
