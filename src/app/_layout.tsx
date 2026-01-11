@@ -13,6 +13,8 @@ import { supabase } from '@/lib/supabase';
 import useStorageStore from '@/lib/state/storage-store';
 import { useOnboardingStore } from '@/lib/state/onboarding-store';
 import { useSurveyStore } from '@/lib/state/survey-store';
+import { Platform } from 'react-native';
+import Purchases from 'react-native-purchases';
 
 export const unstable_settings = {
   // Ensure that reloading on `/modal` keeps a back button present.
@@ -109,9 +111,33 @@ function RootLayoutNav({ colorScheme }: { colorScheme: 'light' | 'dark' | null |
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-  const { setSession, initialized } = useAuthStore();
+  const { setSession, initialized, setIsPro } = useAuthStore();
 
   useEffect(() => {
+    // Initialize RevenueCat
+    const setupPurchases = async () => {
+      try {
+        if (Platform.OS === 'ios') {
+          const iosKey = process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY;
+          if (iosKey) await Purchases.configure({ apiKey: iosKey });
+        } else if (Platform.OS === 'android') {
+          const androidKey = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY;
+          if (androidKey) await Purchases.configure({ apiKey: androidKey });
+        }
+        
+        // Sync subscriber status on boot
+        const customerInfo = await Purchases.getCustomerInfo();
+        const hasPro = typeof customerInfo.entitlements.active['TidyNest Pro'] !== "undefined";
+        console.log('RevenueCat Status:', { hasPro, entitlements: Object.keys(customerInfo.entitlements.active) });
+        setIsPro(hasPro);
+      } catch (e) {
+        console.warn("RevenueCat initialization failed", e);
+        setIsPro(false); // Explicitly set to false on error
+      }
+    };
+
+    setupPurchases();
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       if (session?.user) {

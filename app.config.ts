@@ -4,7 +4,7 @@ const config: ExpoConfig = {
   name: "TidyNest",
   slug: "vibecode",
   scheme: "vibecode",
-  version: "1.0.0",
+  version: "1.0.1",
   orientation: "portrait",
   icon: "./assets/logo.png",
   userInterfaceStyle: "automatic",
@@ -12,7 +12,7 @@ const config: ExpoConfig = {
   ios: {
     supportsTablet: true,
     bundleIdentifier: "com.vibecode.homebox",
-    buildNumber: "4",
+    buildNumber: "6",
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
       NSCameraUsageDescription:

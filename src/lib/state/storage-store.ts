@@ -561,13 +561,18 @@ const useStorageStore = create<StorageStore>()(
         });
 
         // Fetch remote config
-        const { data: config } = await supabase
+        const { data: config, error: configError } = await supabase
           .from('app_config')
           .select('key, value');
         
+        console.log('📊 app_config fetch:', { config, configError });
+        
         if (config) {
           const configMap = config.reduce((acc, curr) => ({ ...acc, [curr.key]: curr.value }), {});
+          console.log('📊 Remote config loaded:', configMap);
           set({ remoteConfig: configMap });
+        } else {
+          console.warn('⚠️ No config data loaded from app_config table');
         }
       },
 

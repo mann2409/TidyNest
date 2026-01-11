@@ -10,8 +10,10 @@ interface AuthStore {
   user: User | null;
   initialized: boolean;
   isGuest: boolean;
+  isPro: boolean;
   setSession: (session: Session | null) => void;
   setGuestMode: (isGuest: boolean) => void;
+  setIsPro: (isPro: boolean) => void;
   signOut: () => Promise<void>;
   deleteAccount: () => Promise<{ error: string | null }>;
 }
@@ -23,11 +25,15 @@ export const useAuthStore = create<AuthStore>()(
       user: null,
       initialized: false,
       isGuest: false,
+      isPro: false,
       setSession: (session) => {
         set({ session, user: session?.user ?? null, initialized: true, isGuest: false });
       },
       setGuestMode: (isGuest) => {
         set({ isGuest, initialized: true });
+      },
+      setIsPro: (isPro) => {
+        set({ isPro });
       },
       signOut: async () => {
         await supabase.auth.signOut();

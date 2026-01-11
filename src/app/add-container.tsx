@@ -5,7 +5,13 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { X, Camera, Image as ImageIcon, Sparkles, ChevronDown, Check, Package, Plus } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
+import * as SecureStore from 'expo-secure-store';
+import 'react-native-get-random-values';
+import { v4 as uuidv4 } from 'uuid';
 import useStorageStore, { Location } from '@/lib/state/storage-store';
+import { useAuthStore } from '@/lib/state/auth-store';
+import { supabase } from '@/lib/supabase';
+import Paywall from '@/components/Paywall';
 import Animated, { 
   FadeIn, 
   FadeOut,
@@ -41,6 +47,9 @@ export default function AddContainerScreen() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [isCheckingLimit, setIsCheckingLimit] = useState(false);
+  const { isPro } = useAuthStore();
 
   // Confetti animation values
   const confetti1Scale = useSharedValue(0);
@@ -153,56 +162,25 @@ export default function AddContainerScreen() {
       const mimeType = uri.endsWith('.png') ? 'image/png' : 'image/jpeg';
       const dataUrl = `data:${mimeType};base64,${base64}`;
 
-      const apiKey = process.env.EXPO_PUBLIC_VIBECODE_OPENAI_API_KEY;
-      if (!apiKey || apiKey.includes('n0tr3al')) {
-        Alert.alert('Configuration Error', 'OpenAI API Key is missing or invalid.');
-        setIsAnalyzing(false);
-        return;
-      }
-
       const categoryList = categories.map((c) => c.code).join(', ');
 
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
+      // Call Supabase Edge Function instead of OpenAI directly
+      const { data, error } = await supabase.functions.invoke('analyze-photo', {
+        body: {
+          imageBase64: dataUrl,
+          categoryList: categoryList,
         },
-        body: JSON.stringify({
-          model: 'gpt-4o',
-          messages: [{
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: `Look at this storage box contents. Identify the specific items inside. List them with a name and 2-3 relevant tags. Also suggest 5-10 overall keywords for the box. Then suggest ONE category from this list: ${categoryList}. Respond ONLY in this JSON format: {"items": [{"name": "Item Name", "tags": ["tag1", "tag2"]}], "keywords": ["keyword1", "keyword2"], "category": "CATEGORY"}`
-              },
-              { 
-                type: 'image_url', 
-                image_url: {
-                  url: dataUrl 
-                }
-              },
-            ],
-          }],
-          response_format: { type: "json_object" }
-        }),
       });
 
-      const data = await response.json();
-      
-      if (!response.ok) {
-        Alert.alert('AI Error', data.error?.message || 'Failed to analyze photo');
+      if (error) {
+        Alert.alert('AI Error', error.message || 'Failed to analyze photo');
         setIsAnalyzing(false);
         return;
       }
 
-      const outputText = data.choices?.[0]?.message?.content || '';
-      const parsed = JSON.parse(outputText);
-      
-      const detectedKeywords = parsed.keywords || [];
-      const detectedCategory = parsed.category || 'MISC';
-      const detectedItems = parsed.items || [];
+      const detectedKeywords = data.keywords || [];
+      const detectedCategory = data.category || 'MISC';
+      const detectedItems = data.items || [];
 
       setKeywords(detectedKeywords);
       setCategory(detectedCategory);
@@ -213,7 +191,7 @@ export default function AddContainerScreen() {
       }
     } catch (error: any) {
       console.error('Error analyzing photo:', error);
-      Alert.alert('Connection Error', 'Check your internet or API key.');
+      Alert.alert('Connection Error', 'Check your internet connection.');
       setCategory('MISC');
       if (selectedLocation) {
         setSuggestedCode(getNextContainerCode(selectedLocation.id, 'MISC'));
@@ -239,8 +217,88 @@ export default function AddContainerScreen() {
     }
   };
 
-  const handleSave = () => {
+  const getOrCreateDeviceId = async () => {
+    let deviceId = await SecureStore.getItemAsync('tidynest_device_id');
+    if (!deviceId) {
+      deviceId = uuidv4();
+      await SecureStore.setItemAsync('tidynest_device_id', deviceId);
+    }
+    return deviceId;
+  };
+
+  const checkBoxLimit = async (): Promise<boolean> => {
+    console.log('🔍 Starting box limit check...');
+    console.log('📋 Current state:', { 
+      isPro, 
+      containersCount: containers.length,
+      remoteConfigKeys: Object.keys(remoteConfig),
+      fullRemoteConfig: remoteConfig
+    });
+    
+    if (isPro) {
+      console.log('✅ User is Pro, bypassing limit');
+      return true;
+    }
+    
+    // Get limit from remote config, fallback to 5
+    const maxBoxes = parseInt(remoteConfig.box_limit || '5', 10);
+    console.log('📦 Box Limit Check:', { 
+      currentBoxes: containers.length, 
+      maxBoxes, 
+      remoteConfigBoxLimit: remoteConfig.box_limit,
+      parsedMaxBoxes: maxBoxes
+    });
+    
+    // 1. Check local count first (fast)
+    if (containers.length >= maxBoxes) {
+      console.log('❌ Local limit reached');
+      setShowPaywall(true);
+      return false;
+    }
+
+    // 2. Check Device-based limit in Supabase (to prevent account hopping on same device)
+    setIsCheckingLimit(true);
+    try {
+      const deviceId = await getOrCreateDeviceId();
+      console.log('🔍 Checking device limit for:', deviceId);
+      
+      // Query Supabase for this Device ID
+      const { data, error } = await supabase
+        .from('device_usage')
+        .select('box_count')
+        .eq('device_id', deviceId)
+        .single();
+
+      if (data && data.box_count >= maxBoxes) {
+        console.log('❌ Device limit reached in Supabase:', { 
+          deviceCount: data.box_count, 
+          maxAllowed: maxBoxes 
+        });
+        setShowPaywall(true);
+        return false;
+      }
+      
+      console.log('✅ Limit check passed!', { 
+        deviceCount: data?.box_count || 0,
+        maxBoxes,
+        localCount: containers.length
+      });
+    } catch (err) {
+      console.warn('⚠️ Device limit check failed, falling back to local count:', err);
+    } finally {
+      setIsCheckingLimit(false);
+    }
+
+    console.log('✅ All checks passed, can add box');
+    return true;
+  };
+
+  const handleSave = async () => {
     if (!selectedLocation || !category || !suggestedCode) return;
+
+    // Check limit before saving
+    const canProceed = await checkBoxLimit();
+    if (!canProceed) return;
 
     const isFirstBox = containers.length === 0;
 
@@ -251,6 +309,18 @@ export default function AddContainerScreen() {
       description: description || undefined,
       photoUrl: photoUri || undefined,
     });
+
+    // Track Device usage in background
+    void (async () => {
+      try {
+        const deviceId = await getOrCreateDeviceId();
+        const { data } = await supabase.from('device_usage').select('box_count').eq('device_id', deviceId).single();
+        const newCount = (data?.box_count || 0) + 1;
+        await supabase.from('device_usage').upsert({ device_id: deviceId, box_count: newCount });
+      } catch (err) {
+        console.error('Failed to track device usage:', err);
+      }
+    })();
 
     if (suggestedItems.length > 0) {
       suggestedItems.forEach(item => {
@@ -276,10 +346,18 @@ export default function AddContainerScreen() {
   };
 
   const canSave = selectedLocation && category && suggestedCode;
+  const maxBoxes = remoteConfig.box_limit || '5';
 
   return (
     <SafeAreaView className="flex-1 bg-zinc-950">
       <View className="flex-1">
+        {/* Paywall Modal */}
+        <Paywall 
+          isVisible={showPaywall} 
+          onClose={() => setShowPaywall(false)} 
+          reason={`You've reached the free limit of ${maxBoxes} boxes. Upgrade to Pro or enter a promo code to add unlimited storage boxes!`}
+        />
+
         {/* Celebration Overlay */}
         {showCelebration && (
           <Animated.View 
@@ -342,10 +420,14 @@ export default function AddContainerScreen() {
           </Text>
           <Pressable
             onPress={handleSave}
-            disabled={!canSave}
-            className={`px-4 py-2 rounded-full ${canSave ? 'bg-brand-orange' : 'bg-[#94a3b8]/10 border border-[#94a3b8]/10'}`}
+            disabled={!canSave || isCheckingLimit}
+            className={`px-4 py-2 rounded-full ${canSave && !isCheckingLimit ? 'bg-brand-orange' : 'bg-[#94a3b8]/10 border border-[#94a3b8]/10'}`}
           >
-            <Text className={canSave ? 'text-black font-semibold' : 'text-[#94a3b8]/40 font-medium'}>Save</Text>
+            {isCheckingLimit ? (
+              <ActivityIndicator size="small" color="#000" />
+            ) : (
+              <Text className={canSave ? 'text-black font-semibold' : 'text-[#94a3b8]/40 font-medium'}>Save</Text>
+            )}
           </Pressable>
         </View>
 

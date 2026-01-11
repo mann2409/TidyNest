@@ -2,17 +2,24 @@ import { useState } from 'react';
 import { View, Text, Pressable, ScrollView, Alert, ActivityIndicator, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { MapPin, ChevronRight, LogOut, Tags, Plus, X, Download, Share2, Printer, ExternalLink, Trash2 } from 'lucide-react-native';
+import { MapPin, ChevronRight, LogOut, Tags, Plus, X, Download, Share2, Printer, ExternalLink, Trash2, Sparkles, RefreshCw, Database } from 'lucide-react-native';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as Linking from 'expo-linking';
+import * as SecureStore from 'expo-secure-store';
+import Purchases from 'react-native-purchases';
+import { supabase } from '@/lib/supabase';
 import useStorageStore from '@/lib/state/storage-store';
 import { useAuthStore } from '@/lib/state/auth-store';
+import Paywall from '@/components/Paywall';
 
 export default function SettingsScreen() {
   const router = useRouter();
   const [isExporting, setIsExporting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [isResettingPro, setIsResettingPro] = useState(false);
+  const [isResettingDevice, setIsResettingDevice] = useState(false);
   const containers = useStorageStore((s) => s.containers);
   const items = useStorageStore((s) => s.items);
   const locations = useStorageStore((s) => s.locations);
@@ -20,7 +27,7 @@ export default function SettingsScreen() {
   const remoteConfig = useStorageStore((s) => s.remoteConfig);
   const addCategory = useStorageStore((s) => s.addCategory);
   const deleteCategory = useStorageStore((s) => s.deleteCategory);
-  const { user, signOut, deleteAccount } = useAuthStore();
+  const { user, signOut, deleteAccount, isPro, setIsPro } = useAuthStore();
 
   const [newCategory, setNewCategory] = useState('');
   const [showCategoryInput, setShowCategoryInput] = useState(false);
@@ -143,13 +150,116 @@ export default function SettingsScreen() {
     );
   };
 
+  const handleResetProStatus = async () => {
+    Alert.alert(
+      'Reset Pro Status',
+      'This will reset your subscription status for testing. Use this if you want to test the free tier again.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Reset', 
+          onPress: async () => {
+            setIsResettingPro(true);
+            try {
+              console.log('🔄 Resetting Pro status...');
+              // Log out of RevenueCat to clear cached subscription
+              await Purchases.logOut();
+              console.log('✅ Logged out of RevenueCat');
+              // Re-initialize to get fresh status
+              const customerInfo = await Purchases.getCustomerInfo();
+              const hasPro = typeof customerInfo.entitlements.active['TidyNest Pro'] !== "undefined";
+              console.log('📊 New Pro status:', hasPro);
+              setIsPro(hasPro);
+              Alert.alert('Success', `Pro status has been reset. Current status: ${hasPro ? 'Pro' : 'Free'}`);
+            } catch (e: any) {
+              console.error('❌ Reset Pro error:', e);
+              Alert.alert('Error', `Failed to reset: ${e.message || 'Unknown error'}`);
+            } finally {
+              setIsResettingPro(false);
+            }
+          }
+        },
+      ]
+    );
+  };
+
+  const handleResetDeviceLimit = async () => {
+    Alert.alert(
+      'Reset Device Limit',
+      'This will clear the device box count from the database, allowing you to test the limit again.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Reset', 
+          onPress: async () => {
+            setIsResettingDevice(true);
+            try {
+              const deviceId = await SecureStore.getItemAsync('tidynest_device_id');
+              if (deviceId) {
+                console.log('🗑️ Deleting device usage for:', deviceId);
+                const { error } = await supabase
+                  .from('device_usage')
+                  .delete()
+                  .eq('device_id', deviceId);
+                
+                if (error) {
+                  Alert.alert('Error', `Failed to reset: ${error.message}`);
+                } else {
+                  Alert.alert('Success', 'Device limit has been reset to 0.');
+                }
+              } else {
+                Alert.alert('Info', 'No device ID found.');
+              }
+            } catch (e: any) {
+              console.error('❌ Reset device error:', e);
+              Alert.alert('Error', `Failed to reset: ${e.message || 'Unknown error'}`);
+            } finally {
+              setIsResettingDevice(false);
+            }
+          }
+        },
+      ]
+    );
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-zinc-950" edges={['top']}>
+      <Paywall isVisible={showPaywall} onClose={() => setShowPaywall(false)} />
       <ScrollView className="flex-1 px-4">
         {/* Header */}
         <View className="py-4">
           <Text className="text-3xl font-bold text-white">Settings</Text>
         </View>
+
+        {/* Pro Banner */}
+        {!isPro ? (
+          <Pressable 
+            onPress={() => setShowPaywall(true)}
+            className="bg-brand-orange rounded-2xl p-5 mb-6 shadow-lg shadow-brand-orange/20 overflow-hidden"
+          >
+            <View className="flex-row items-center justify-between">
+              <View className="flex-1">
+                <Text className="text-black font-black text-xl tracking-tight">Upgrade to TidyNest Pro</Text>
+                <Text className="text-black/70 text-sm font-bold mt-1">Unlimited boxes, priority AI, & cloud sync.</Text>
+              </View>
+              <View className="w-12 h-12 bg-black/10 rounded-xl items-center justify-center">
+                <Sparkles size={24} color="#000" />
+              </View>
+            </View>
+          </Pressable>
+        ) : (
+          <View className="bg-zinc-900 rounded-2xl p-5 mb-6 border border-brand-orange/30">
+            <View className="flex-row items-center">
+              <View className="w-10 h-10 bg-brand-orange/10 rounded-full items-center justify-center mr-4">
+                <Sparkles size={20} color="#FF9500" />
+              </View>
+              <View>
+                <Text className="text-white font-bold text-lg">Pro Member</Text>
+                <Text className="text-brand-orange text-xs font-bold uppercase tracking-widest">Active Subscription</Text>
+              </View>
+            </View>
+          </View>
+        )}
 
         {/* Stats */}
         <View className="bg-zinc-900 rounded-2xl p-4 mb-6 border border-zinc-800">
@@ -307,6 +417,63 @@ export default function SettingsScreen() {
             <Text className="text-red-500 font-medium">Sign Out</Text>
           </View>
         </Pressable>
+
+        {/* Reset Pro Status (Testing) */}
+        {__DEV__ && (
+          <>
+            <Pressable
+              className="bg-zinc-900 rounded-xl p-4 flex-row items-center active:opacity-80 mb-2 border border-zinc-800"
+              onPress={handleResetProStatus}
+              disabled={isResettingPro}
+            >
+              <View className="w-10 h-10 bg-yellow-500/20 rounded-xl items-center justify-center mr-3">
+                {isResettingPro ? (
+                  <ActivityIndicator size="small" color="#eab308" />
+                ) : (
+                  <RefreshCw size={20} color="#eab308" />
+                )}
+              </View>
+              <View className="flex-1">
+                <Text className="text-yellow-500 font-medium text-sm">Reset Pro Status (RevenueCat)</Text>
+                <Text className="text-zinc-500 text-xs mt-0.5">Clear RevenueCat subscription cache</Text>
+              </View>
+            </Pressable>
+            
+            <Pressable
+              className="bg-zinc-900 rounded-xl p-4 flex-row items-center active:opacity-80 mb-2 border border-zinc-800"
+              onPress={() => {
+                setIsPro(false);
+                Alert.alert('Success', 'Pro status set to FREE for testing.');
+              }}
+            >
+              <View className="w-10 h-10 bg-orange-500/20 rounded-xl items-center justify-center mr-3">
+                <X size={20} color="#f97316" />
+              </View>
+              <View className="flex-1">
+                <Text className="text-orange-500 font-medium text-sm">Force Free Tier (Quick Test)</Text>
+                <Text className="text-zinc-500 text-xs mt-0.5">Immediately set to free without RevenueCat</Text>
+              </View>
+            </Pressable>
+            
+            <Pressable
+              className="bg-zinc-900 rounded-xl p-4 flex-row items-center active:opacity-80 mb-2 border border-zinc-800"
+              onPress={handleResetDeviceLimit}
+              disabled={isResettingDevice}
+            >
+              <View className="w-10 h-10 bg-blue-500/20 rounded-xl items-center justify-center mr-3">
+                {isResettingDevice ? (
+                  <ActivityIndicator size="small" color="#3b82f6" />
+                ) : (
+                  <Database size={20} color="#3b82f6" />
+                )}
+              </View>
+              <View className="flex-1">
+                <Text className="text-blue-500 font-medium text-sm">Reset Device Box Count</Text>
+                <Text className="text-zinc-500 text-xs mt-0.5">Clear device limit tracking from database</Text>
+              </View>
+            </Pressable>
+          </>
+        )}
 
         <Pressable
           className="bg-zinc-900 rounded-xl p-4 flex-row items-center active:opacity-80 mb-12 border border-zinc-800"
