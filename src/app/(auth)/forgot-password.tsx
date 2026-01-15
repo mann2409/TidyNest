@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Mail, Loader2, ArrowRight, ChevronLeft, CheckCircle2 } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
+import * as Linking from 'expo-linking';
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
@@ -20,7 +21,12 @@ export default function ForgotPasswordScreen() {
     setError(null);
     
     try {
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email);
+      const redirectTo = Linking.createURL('/reset-password');
+      console.log('Reset redirect URL:', redirectTo);
+      
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo,
+      });
 
       if (resetError) throw resetError;
       
